@@ -16,9 +16,26 @@ export class NodeFileSystem implements FileSystem {
 
   async readText(path: string): Promise<string> { return readFile(path, 'utf8'); }
 
-  async createExclusive(path: string, content: string): Promise<void> {
+  async createExclusive(path: string, content: string): Promise<boolean> {
     await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, content, { encoding: 'utf8', flag: 'wx' });
+    try {
+      await writeFile(path, content, { encoding: 'utf8', flag: 'wx' });
+      return true;
+    } catch (error) {
+      if ((error as { code?: string }).code === 'EEXIST') return false;
+      throw error;
+    }
+  }
+
+  async removeIfMatches(path: string, content: string): Promise<boolean> {
+    try {
+      if ((await readFile(path, 'utf8')) !== content) return false;
+      await rm(path);
+      return true;
+    } catch (error) {
+      if ((error as { code?: string }).code === 'ENOENT') return false;
+      throw error;
+    }
   }
 
   async list(path: string): Promise<readonly string[]> {

@@ -53,6 +53,7 @@ export class MetadataCacheService implements MetadataCache {
       `metadata:${repo}`,
       sessionId,
       this.options.lockTimeoutMs,
+      sessionId,
     );
 
     try {

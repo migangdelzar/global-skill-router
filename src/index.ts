@@ -9,7 +9,8 @@ export {
   MetadataCacheService,
   MetadataRefreshError,
 } from './services/metadata-cache.js';
-export { InMemorySourceLock } from './services/source-lock.js';
+export { FileSystemSourceLock, InMemorySourceLock } from './services/source-lock.js';
+export type { FileSystemSourceLockOptions } from './services/source-lock.js';
 export {
   CatalogValidationError,
   parseCatalog,

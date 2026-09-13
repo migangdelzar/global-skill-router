@@ -42,3 +42,17 @@ Complete.
 - `git diff --check` — PASS.
 
 The repository has no configured `origin`, so this commit could not be pushed. PDF/JSON data files and RTK/global files were not modified.
+
+## Review-fix verification
+
+- Added filesystem-backed exclusive lock files with owner, PID, session ID, creation timestamp, and unique token metadata.
+- Added token-checked atomic removal semantics so stale reclamation and old leases cannot remove a replacement lock.
+- Added bounded polling with timeout rechecks so waiters reclaim crashed holders.
+- Added per-session negative caching for failed refreshes while retaining stale verified metadata fallback.
+- Added exact requested-repository validation for cached metadata.
+- `npm test -- --run tests/unit/source-lock.test.ts tests/unit/metadata-cache.test.ts` — PASS, 14/14.
+- `npm run typecheck` — PASS.
+- `npm run build` — PASS.
+- `git diff --check` — PASS.
+- Full suite: 57/58 passed; the only failure is the unrelated pre-existing Task 10 `ToolReleaseManager` checksum fixture (`tgrep-aarch64-apple-darwin.tar.gz`).
+- PDF/JSON data files and global/RTK files were not modified. No remote is configured, so the commit cannot be pushed.

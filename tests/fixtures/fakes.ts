@@ -46,14 +46,18 @@ export class FakeFileSystem implements FileSystem {
     return [...children];
   }
 
-  async createExclusive(path: string, content: string): Promise<void> {
+  async createExclusive(path: string, content: string): Promise<boolean> {
     this.calls.push(['createExclusive', path, content]);
-    if (this.files.has(path) || this.directories.has(path)) {
-      const error = new Error(`Path already exists: ${path}`) as Error & { code?: string };
-      error.code = 'EEXIST';
-      throw error;
-    }
+    if (this.files.has(path) || this.directories.has(path)) return false;
     this.files.set(path, content);
+    return true;
+  }
+
+  async removeIfMatches(path: string, content: string): Promise<boolean> {
+    this.calls.push(['removeIfMatches', path, content]);
+    if (this.files.get(path) !== content) return false;
+    this.files.delete(path);
+    return true;
   }
 
   async writeText(path: string, content: string): Promise<void> {
