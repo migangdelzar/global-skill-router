@@ -1,0 +1,82 @@
+skills:
+  - id: rtk-cli-filter
+    category: tooling
+    source: rtk-ai/rtk
+    skill_path: .
+    use_when: [run tests, inspect git, build logs, shell-heavy coding task]
+    activation: automatic
+    conflicts_with: []
+    requires: [rtk]
+    release_policy: latest-stable-tag
+  - id: emil-design-eng
+    category: ui
+    source: emilkowalski/skills
+    skill_path: skills/emil-design-eng
+    use_when: [ui polish, animation, interaction, component craft]
+    activation: automatic
+    conflicts_with: [ui-ux-pro-max, impeccable]
+    requires: []
+    release_policy: latest-stable-tag
+  - id: apple-design
+    category: ui-platform
+    source: emilkowalski/skills
+    skill_path: skills/apple-design
+    use_when: [Apple platform, iOS, macOS, Human Interface Guidelines]
+    activation: explicit
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: taste
+    category: ui-research
+    source: senlindesign/taste-skill
+    skill_path: .
+    use_when: [analyze website design, extract design DNA, study visual reference]
+    activation: explicit
+    conflicts_with: []
+    requires: [playwright]
+    release_policy: latest-stable-tag
+  - id: impeccable
+    category: ui-audit
+    source: pbakaus/impeccable
+    skill_path: .
+    use_when: [UI audit, accessibility audit, visual polish]
+    activation: explicit
+    conflicts_with: [ui-ux-pro-max, emil-design-eng]
+    requires: []
+    release_policy: latest-stable-tag
+  - id: ui-ux-pro-max
+    category: ui-system
+    source: nextlevelbuilder/ui-ux-pro-max-skill
+    skill_path: .
+    use_when: [design system, style exploration, UI architecture]
+    activation: explicit
+    conflicts_with: [emil-design-eng, impeccable]
+    requires: []
+    release_policy: latest-stable-tag
+  - id: graphify
+    category: codebase
+    source: safishamsi/graphify
+    skill_path: .
+    use_when: [codebase graph, dependency graph, repository map]
+    activation: explicit
+    conflicts_with: [understand-anything]
+    requires: []
+    release_policy: latest-stable-tag
+  - id: understand-anything
+    category: codebase
+    source: EgonexAI/Understand-Anything
+    skill_path: .
+    use_when: [understand codebase, visualize repository, explore codebase]
+    activation: explicit
+    conflicts_with: [graphify]
+    requires: []
+    release_policy: latest-stable-tag
+  - id: rtk-cli-filter
+    category: tooling
+    source: rtk-ai/rtk
+    skill_path: .
+    use_when: [run tests, inspect git, build logs, shell-heavy coding task]
+    activation: automatic
+    conflicts_with: []
+    requires: [rtk]
+    release_policy: latest-stable-tag
