@@ -34,6 +34,18 @@ export class FakeFileSystem implements FileSystem {
     return content;
   }
 
+  async list(path: string): Promise<readonly string[]> {
+    this.calls.push(['list', path]);
+    const prefix = path.endsWith('/') ? path : `${path}/`;
+    const children = new Set<string>();
+    for (const entry of [...this.files.keys(), ...this.directories]) {
+      if (!entry.startsWith(prefix)) continue;
+      const child = entry.slice(prefix.length).split('/')[0];
+      if (child !== undefined && child.length > 0) children.add(child);
+    }
+    return [...children];
+  }
+
   async writeText(path: string, content: string): Promise<void> {
     this.calls.push(['writeText', path, content]);
     this.files.set(path, content);

@@ -419,7 +419,7 @@ export interface SessionManager {
 }
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover:
 
@@ -431,23 +431,23 @@ Cover:
 6. A session cannot activate an artifact whose metadata SHA does not match its directory.
 7. Integration test proves two sessions share one cached release and cleanup one session leaves the other intact.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- --run tests/unit/session-manager.test.ts tests/integration/session-lifecycle.test.ts`
 
 Expected: FAIL because session management is not implemented.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create per-session directories with restrictive permissions, copy or link only the selected skill, preserve the shared object directory, and implement startup garbage collection for abandoned sessions.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- --run tests/unit/session-manager.test.ts tests/integration/session-lifecycle.test.ts && npm run typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/domain/session.ts src/services/session-manager.ts tests/unit/session-manager.test.ts tests/integration/session-lifecycle.test.ts

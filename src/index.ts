@@ -30,3 +30,5 @@ export {
   artifactPath,
 } from './services/artifact-cache.js';
 export type { ArtifactCacheOptions, CachedArtifact } from './services/artifact-cache.js';
+export { SessionIntegrityError, SessionManagerService } from './services/session-manager.js';
+export type { SessionManagerOptions } from './services/session-manager.js';

@@ -6,7 +6,7 @@
 - [x] Write and review implementation plan
 - [x] Implement catalog and router behavior, including tgrep/RTK tooling policy
 - [x] Add tests for release-only resolution and cache stampede protection
-- [ ] Add tests for session activation and cleanup
+- [x] Add tests for session activation and cleanup
 - [x] Add verified artifact caching with atomic publication
 - [ ] Add RTK release-managed global tooling with rollback safeguards
 - [ ] Run verification: tests, typecheck/lint, and deterministic cache scenarios
