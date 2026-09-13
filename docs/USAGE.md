@@ -4,6 +4,7 @@
 skill-router list
 skill-router doctor
 skill-router explain "Run tests and inspect the git diff"
+skill-router check-updates --session <session-id>
 skill-router use <skill-id> --session <session-id>
 skill-router install <skill-id> --confirm --session <session-id>
 skill-router update <skill-id> --confirm --session <session-id>

@@ -33,12 +33,20 @@ const TOOL_DEFINITIONS: Readonly<Record<ManagedToolId, ToolDefinition>> = {
 
 export interface CliDependencies {
   catalog: readonly SkillEntry[];
+  checkUpdates?: (sessionId: string) => Promise<readonly SkillUpdate[]>;
   activate?: (skill: SkillEntry, sessionId: string) => Promise<string>;
   install?: (skill: SkillEntry) => Promise<void>;
   update?: (skill: SkillEntry) => Promise<void>;
   clean?: (sessionId?: string) => Promise<void>;
   tooling?: ToolingRegistry;
   installTool?: (toolId: ManagedToolId, confirm: boolean) => Promise<unknown>;
+}
+
+export interface SkillUpdate {
+  skillId: string;
+  source: string;
+  tag: string;
+  commitSha: string;
 }
 
 export interface CliResult {
@@ -60,6 +68,7 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
   if (command === 'list') return { code: 0, output: list(dependencies.catalog) };
   if (command === 'doctor') return doctor(dependencies.tooling);
   if (command === 'explain') return explain(rest.join(' '), dependencies.catalog);
+  if (command === 'check-updates') return checkUpdates(rest, dependencies);
   if (command === 'install-tool' || command === 'update-tool') {
     return installTool(command, rest, dependencies);
   }
@@ -89,7 +98,33 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
       return { code: 2, output: `Unable to activate ${skill.id}: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
-  return { code: 1, output: 'Usage: skill-router list|doctor|explain|use|install|update|install-tool|update-tool|clean' };
+  return { code: 1, output: 'Usage: skill-router list|doctor|explain|check-updates|use|install|update|install-tool|update-tool|clean' };
+}
+
+async function checkUpdates(args: readonly string[], dependencies: CliDependencies): Promise<CliResult> {
+  if (dependencies.checkUpdates === undefined) {
+    return { code: 2, output: 'check-updates is unavailable in this composition' };
+  }
+
+  const sessionId = sessionIdFromArgs(args);
+  try {
+    const updates = [...await dependencies.checkUpdates(sessionId)].sort((left, right) =>
+      left.skillId < right.skillId ? -1 : left.skillId > right.skillId ? 1 : 0,
+    );
+    return {
+      code: 0,
+      output: updates.length === 0
+        ? 'No approved skill updates found.'
+        : updates.map((update) =>
+          `${update.skillId}: latest ${update.tag} from ${update.source} (${update.commitSha})`,
+        ).join('\n'),
+    };
+  } catch (error) {
+    return {
+      code: 2,
+      output: `Unable to check updates: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 }
 
 async function doctor(tooling: ToolingRegistry | undefined): Promise<CliResult> {
@@ -163,6 +198,24 @@ export async function runCliFromDisk(
   };
   return runCli(args, {
     catalog,
+    checkUpdates: async (sessionId) => {
+      const releases = new Map<string, Awaited<ReturnType<typeof metadata.getLatest>>>();
+      for (const skill of catalog) {
+        if (!releases.has(skill.source)) {
+          releases.set(skill.source, await metadata.getLatest(skill.source, sessionId));
+        }
+      }
+      return catalog.map((skill) => {
+        const record = releases.get(skill.source);
+        if (record === undefined) throw new Error(`missing release metadata for ${skill.source}`);
+        return {
+          skillId: skill.id,
+          source: skill.source,
+          tag: record.release.tag,
+          commitSha: record.release.commitSha,
+        };
+      });
+    },
     activate: activateCached,
     tooling: new ToolingRegistry(new PathToolLocator()),
     installTool: (toolId, confirm) => releaseManager.install(TOOL_DEFINITIONS[toolId], confirm),

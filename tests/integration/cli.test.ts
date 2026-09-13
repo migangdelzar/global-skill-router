@@ -33,6 +33,28 @@ describe('skill-router CLI', () => {
     expect(result.output).toContain('CLI output optimizer: rtk');
   });
 
+  it('prints deterministic release metadata from the injected update checker', async () => {
+    let requestedSession: string | undefined;
+    const result = await runCli(['check-updates', '--session', 'session-a'], {
+      catalog,
+      checkUpdates: async (sessionId) => {
+        requestedSession = sessionId;
+        return [{
+          skillId: 'rtk-cli-filter',
+          source: 'rtk-ai/rtk',
+          tag: 'v1.2.3',
+          commitSha: 'a'.repeat(40),
+        }];
+      },
+    });
+
+    expect(result.code).toBe(0);
+    expect(requestedSession).toBe('session-a');
+    expect(result.output).toBe(
+      'rtk-cli-filter: latest v1.2.3 from rtk-ai/rtk (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)',
+    );
+  });
+
   it('requires confirmation before an install can write anything', async () => {
     let called = false;
     const result = await runCli(['install', 'rtk-cli-filter'], {

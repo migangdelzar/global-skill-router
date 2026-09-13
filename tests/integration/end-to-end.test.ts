@@ -27,13 +27,22 @@ class DiskExtractor implements ArchiveExtractor {
 }
 
 class DiskGitHub implements GitHubClient {
+  readonly calls: string[] = [];
+
   async listReleases(repo: string) {
+    this.calls.push(`listReleases:${repo}`);
     return [{ tagName: 'v1.0.0', publishedAt: '2026-01-01T00:00:00.000Z', draft: false, prerelease: false, repo }];
   }
 
-  async resolveTag() { return { commitSha: '0123456789abcdef0123456789abcdef01234567' }; }
+  async resolveTag(repo: string, tag: string) {
+    this.calls.push(`resolveTag:${repo}:${tag}`);
+    return { commitSha: '0123456789abcdef0123456789abcdef01234567' };
+  }
 
-  async downloadTagArchive() { return new Uint8Array([1, 2, 3]); }
+  async downloadTagArchive(repo: string, tag: string) {
+    this.calls.push(`downloadTagArchive:${repo}:${tag}`);
+    return new Uint8Array([1, 2, 3]);
+  }
 }
 
 describe('global router lifecycle', () => {
@@ -109,5 +118,40 @@ skills:
     expect(clean.code).toBe(0);
     await expect(fileSystem.exists('/cache/sessions/session-a')).resolves.toBe(false);
     await expect(fileSystem.exists('/cache/objects/owner%2Frepo-skills%2Fdemo-0123456789abcdef0123456789abcdef01234567')).resolves.toBe(true);
+  });
+
+  it('checks release metadata without downloading or activating an artifact', async () => {
+    const fileSystem = new FakeFileSystem();
+    const clock = new FakeClock();
+    const home = await mkdtemp(join(tmpdir(), 'skill-router-check-updates-'));
+    const catalogPath = join(home, 'catalog.yaml');
+    await writeFile(catalogPath, `
+skills:
+  - id: demo
+    category: primary
+    source: owner/repo
+    skill_path: skills/demo
+    use_when: [demo]
+    activation: automatic
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+`, 'utf8');
+    const github = new DiskGitHub();
+
+    const result = await runCliFromDisk(['check-updates', '--session', 'session-check'], catalogPath, {
+      cacheRoot: '/cache',
+      fileSystem,
+      clock,
+      github,
+    });
+
+    expect(result.code).toBe(0);
+    expect(result.output).toBe(
+      'demo: latest v1.0.0 from owner/repo (0123456789abcdef0123456789abcdef01234567)',
+    );
+    expect(github.calls).toEqual(['listReleases:owner/repo', 'resolveTag:owner/repo:v1.0.0']);
+    await expect(fileSystem.exists('/cache/sessions/session-check/active')).resolves.toBe(false);
+    await expect(fileSystem.exists('/cache/objects/owner%2Frepo-skills%2Fdemo-0123456789abcdef0123456789abcdef01234567')).resolves.toBe(false);
   });
 });
