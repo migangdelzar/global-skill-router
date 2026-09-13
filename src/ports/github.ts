@@ -1,9 +1,6 @@
-export interface GitHubRelease {
-  tagName: string;
-  publishedAt: string;
-  prerelease: boolean;
-  draft: boolean;
-}
+import type { GitHubRelease } from '../domain/version.js';
+
+export type { GitHubRelease } from '../domain/version.js';
 
 export interface GitHubClient {
   listReleases(repo: string): Promise<ReadonlyArray<GitHubRelease>>;
