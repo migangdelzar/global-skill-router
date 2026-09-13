@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CachedArtifact } from '../../src/services/artifact-cache.js';
+import { artifactPath, type CachedArtifact } from '../../src/services/artifact-cache.js';
 import { SessionManagerService } from '../../src/services/session-manager.js';
 import { FakeClock, FakeFileSystem } from '../fixtures/fakes.js';
 
@@ -9,7 +9,12 @@ const artifact: CachedArtifact = {
   tag: 'v1.0.0',
   commitSha: '0123456789abcdef0123456789abcdef01234567',
   sha256: 'a'.repeat(64),
-  objectPath: '/cache/objects/demo',
+  objectPath: artifactPath('/cache', {
+    repo: 'owner/repo',
+    tag: 'v1.0.0',
+    commitSha: '0123456789abcdef0123456789abcdef01234567',
+    resolvedAt: '2026-01-01T00:00:00.000Z',
+  }, 'skills/demo'),
 };
 
 describe('SessionManagerService', () => {
@@ -81,6 +86,27 @@ describe('SessionManagerService', () => {
 
       await expect(manager.activate('session-a', unsafeArtifact)).rejects.toThrow(/unsafe skill path/);
     });
+
+  it('rejects a valid-looking artifact whose object path is outside the cache root', async () => {
+    const fileSystem = new FakeFileSystem();
+    const forgedArtifact = { ...artifact, objectPath: '/outside/secret' };
+    await fileSystem.mkdir(forgedArtifact.objectPath);
+    await fileSystem.writeText(
+      `${forgedArtifact.objectPath}.json`,
+      JSON.stringify(forgedArtifact),
+    );
+    const manager = new SessionManagerService({
+      root: '/cache',
+      fileSystem,
+      clock: new FakeClock(),
+      abandonedTtlMs: 60_000,
+    });
+
+    await expect(manager.activate('session-a', forgedArtifact)).rejects.toThrow(
+      /does not match the canonical cache object/,
+    );
+    expect(fileSystem.calls.some(([method]) => method === 'copyTree')).toBe(false);
+  });
 
   it('collects sessions older than the configured TTL', async () => {
     const fileSystem = new FakeFileSystem();

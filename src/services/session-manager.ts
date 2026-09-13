@@ -1,4 +1,4 @@
-import type { CachedArtifact } from './artifact-cache.js';
+import { artifactPath, type CachedArtifact } from './artifact-cache.js';
 import { sessionActivePath, sessionRoot, type SessionRecord } from '../domain/session.js';
 import type { Clock } from '../ports/clock.js';
 import type { FileSystem } from '../ports/filesystem.js';
@@ -37,14 +37,25 @@ export class SessionManagerService {
   async activate(sessionId: string, artifact: CachedArtifact): Promise<string> {
     validateSessionId(sessionId);
     validateSkillPath(artifact.skillPath);
-    const metadataPath = `${artifact.objectPath}.json`;
+    validateRepo(artifact.repo);
+    validateTag(artifact.tag);
+    const expectedObjectPath = artifactPath(this.options.root, {
+      repo: artifact.repo,
+      tag: artifact.tag,
+      commitSha: artifact.commitSha,
+      resolvedAt: '',
+    }, artifact.skillPath);
+    if (artifact.objectPath !== expectedObjectPath) {
+      throw new SessionIntegrityError('artifact object path does not match the canonical cache object');
+    }
+    const metadataPath = `${expectedObjectPath}.json`;
     if (!(await this.options.fileSystem.exists(metadataPath))) {
       throw new SessionIntegrityError('shared artifact metadata is missing');
     }
     const metadata = JSON.parse(await this.options.fileSystem.readText(metadataPath)) as Partial<CachedArtifact>;
     if (
       metadata.commitSha !== artifact.commitSha ||
-      metadata.objectPath !== artifact.objectPath ||
+      metadata.objectPath !== expectedObjectPath ||
       metadata.sha256 !== artifact.sha256 ||
       metadata.repo !== artifact.repo ||
       metadata.skillPath !== artifact.skillPath ||
@@ -56,7 +67,7 @@ export class SessionManagerService {
     const active = await this.startIfMissing(sessionId);
     const name = `${encodeURIComponent(artifact.repo)}-${encodeURIComponent(artifact.skillPath)}`;
     const destination = `${active}/${name}`;
-    await this.options.fileSystem.copyTree(`${artifact.objectPath}/${artifact.skillPath}`, destination);
+    await this.options.fileSystem.copyTree(`${expectedObjectPath}/${artifact.skillPath}`, destination);
     return destination;
   }
 
@@ -107,5 +118,17 @@ function validateSkillPath(skillPath: string): void {
     skillPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..')
   ) {
     throw new SessionIntegrityError(`unsafe skill path ${skillPath}`);
+  }
+}
+
+function validateRepo(repo: string): void {
+  if (!/^[^/\\\s]+\/[^/\\\s]+$/.test(repo)) {
+    throw new SessionIntegrityError(`unsafe repository ${repo}`);
+  }
+}
+
+function validateTag(tag: string): void {
+  if (tag.length === 0 || tag.includes('\0')) {
+    throw new SessionIntegrityError(`unsafe release tag ${tag}`);
   }
 }
