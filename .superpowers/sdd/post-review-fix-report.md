@@ -19,7 +19,7 @@ Implemented every High and Medium finding in `post-review-fix-brief.md` with reg
 - `bun run typecheck`: passed.
 - `bun run build`: passed.
 - `git diff --check`: passed.
-- Remote-ref verification pending push; local HEAD is `05faeba`.
+- Remote-ref verified after push: `185d428 docs: add post-review fix report`.
 
 ## Commits
 

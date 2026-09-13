@@ -27,3 +27,5 @@
 
 - Task 5 artifact cache, Task 6 session lifecycle, Task 7 CLI, Task 8 global
   bootstrap, Task 9 documentation/verification, and Task 10 runtime tooling.
+- Post-review fixes complete: commits `6d3491a`, `35fda79`, `05faeba`, `185d428`;
+  full review-fix suite passed and remote ref verified.
