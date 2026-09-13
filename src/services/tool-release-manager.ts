@@ -1,5 +1,6 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { FileSystem } from '../ports/filesystem.js';
+import type { SourceLock } from '../ports/lock.js';
 import type { ToolAsset, ToolAssetInstaller, ToolInstallResult, ToolRelease, ToolReleaseClient } from '../ports/tooling.js';
 
 export interface ToolDefinition {
@@ -15,6 +16,8 @@ export interface ToolReleaseManagerOptions {
   architecture: string;
   versionOf(path: string): Promise<string>;
   assetInstaller: ToolAssetInstaller;
+  sourceLock: SourceLock;
+  lockTimeoutMs?: number;
 }
 
 export class ToolInstallError extends Error {
@@ -44,34 +47,26 @@ export class ToolReleaseManager {
     }
     if (!confirm) return { preview: true, release, asset };
 
-    const bytes = await this.options.client.downloadAsset(definition.repo, release.tag, asset.name);
-    const digest = createHash('sha256').update(bytes).digest('hex');
-    if (digest !== asset.sha256.toLowerCase()) throw new ToolInstallError(`checksum mismatch for ${asset.name}`);
-
-    const temporaryPath = `${definition.binaryPath}.tmp-${Date.now()}`;
-    const backupPath = `${definition.binaryPath}.previous`;
-    const metadataPath = `${definition.binaryPath}.json`;
-    const temporaryMetadataPath = `${metadataPath}.tmp-${Date.now()}`;
-    const backupMetadataPath = `${metadataPath}.previous`;
-    let existingWasMoved = false;
-    let existingMetadataWasMoved = false;
+    const lease = await this.options.sourceLock.acquire(
+      `tool:${definition.repo}:${definition.id}`,
+      `tool-${definition.id}-${process.pid}`,
+      this.options.lockTimeoutMs ?? 30_000,
+      definition.id,
+    );
+    let temporaryPath: string | undefined;
+    let temporaryMetadataPath: string | undefined;
     try {
-      await this.options.assetInstaller.install(bytes, asset.name, temporaryPath);
-      const version = await this.options.versionOf(temporaryPath);
-      if (!version.includes(release.tag.replace(/^v/, ''))) {
-        throw new ToolInstallError(`version ${version} does not match ${release.tag}`);
-      }
-      const hasExisting = await this.options.fileSystem.exists(definition.binaryPath);
-      if (hasExisting) {
-        await this.options.fileSystem.rename(definition.binaryPath, backupPath);
-        existingWasMoved = true;
-      }
-      const hasMetadata = await this.options.fileSystem.exists(metadataPath);
-      if (hasMetadata) {
-        await this.options.fileSystem.rename(metadataPath, backupMetadataPath);
-        existingMetadataWasMoved = true;
-      }
-      await this.options.fileSystem.rename(temporaryPath, definition.binaryPath);
+      const bytes = await this.options.client.downloadAsset(definition.repo, release.tag, asset.name);
+      const digest = createHash('sha256').update(bytes).digest('hex');
+      if (digest !== asset.sha256.toLowerCase()) throw new ToolInstallError(`checksum mismatch for ${asset.name}`);
+
+      const token = `${Date.now()}-${randomUUID()}`;
+      temporaryPath = `${definition.binaryPath}.tmp-${token}`;
+      const backupPath = `${definition.binaryPath}.previous-${token}`;
+      const metadataPath = `${definition.binaryPath}.json`;
+      temporaryMetadataPath = `${metadataPath}.tmp-${token}`;
+      const backupMetadataPath = `${metadataPath}.previous-${token}`;
+      await this.installAndCheckVersion(bytes, asset.name, temporaryPath, release.tag);
       await this.options.fileSystem.writeText(temporaryMetadataPath, JSON.stringify({
         toolId: definition.id,
         repo: definition.repo,
@@ -81,30 +76,76 @@ export class ToolReleaseManager {
         sha256: asset.sha256.toLowerCase(),
         path: definition.binaryPath,
       }));
-      await this.options.fileSystem.rename(temporaryMetadataPath, metadataPath);
-      return { toolId: definition.id, repo: definition.repo, tag: release.tag, asset: asset.name, path: definition.binaryPath, backupPath: hasExisting ? backupPath : null, commitSha: release.commitSha };
+
+      const hasExisting = await this.options.fileSystem.exists(definition.binaryPath);
+      const hasMetadata = await this.options.fileSystem.exists(metadataPath);
+      let existingWasMoved = false;
+      let existingMetadataWasMoved = false;
+      let binaryReplaced = false;
+      let metadataReplaced = false;
+      try {
+        if (hasExisting) {
+          await this.options.fileSystem.rename(definition.binaryPath, backupPath);
+          existingWasMoved = true;
+        }
+        if (hasMetadata) {
+          await this.options.fileSystem.rename(metadataPath, backupMetadataPath);
+          existingMetadataWasMoved = true;
+        }
+        await this.options.fileSystem.rename(temporaryPath, definition.binaryPath);
+        binaryReplaced = true;
+        await this.options.fileSystem.rename(temporaryMetadataPath, metadataPath);
+        metadataReplaced = true;
+        return { toolId: definition.id, repo: definition.repo, tag: release.tag, asset: asset.name, path: definition.binaryPath, backupPath: hasExisting ? backupPath : null, commitSha: release.commitSha };
+      } catch (error) {
+        await this.rollbackPair(
+          definition.binaryPath,
+          metadataPath,
+          backupPath,
+          backupMetadataPath,
+          existingWasMoved,
+          existingMetadataWasMoved,
+          binaryReplaced,
+          metadataReplaced,
+        );
+        throw error;
+      }
     } catch (error) {
-      await this.options.fileSystem.remove(temporaryPath);
-      await this.options.fileSystem.remove(temporaryMetadataPath);
-      if (existingWasMoved) {
-        try {
-          if (!(await this.options.fileSystem.exists(definition.binaryPath))) {
-            await this.options.fileSystem.rename(backupPath, definition.binaryPath);
-          }
-        } catch {
-          // Preserve the original installation error. The backup remains available for manual recovery.
-        }
-      }
-      if (existingMetadataWasMoved) {
-        try {
-          if (!(await this.options.fileSystem.exists(metadataPath))) {
-            await this.options.fileSystem.rename(backupMetadataPath, metadataPath);
-          }
-        } catch {
-          // Preserve the original installation error. The metadata backup remains available for manual recovery.
-        }
-      }
+      // The install/check phase can fail before replacement begins.
+      if (temporaryPath !== undefined) await this.options.fileSystem.remove(temporaryPath);
+      if (temporaryMetadataPath !== undefined) await this.options.fileSystem.remove(temporaryMetadataPath);
       throw error;
+    } finally {
+      await lease.release();
+    }
+  }
+
+  private async installAndCheckVersion(bytes: Uint8Array, assetName: string, destination: string, tag: string): Promise<string> {
+    await this.options.assetInstaller.install(bytes, assetName, destination);
+    const version = await this.options.versionOf(destination);
+    if (normalizeVersion(version) !== normalizeVersion(tag)) {
+      throw new ToolInstallError(`version ${version} does not match ${tag}`);
+    }
+    return version;
+  }
+
+  private async rollbackPair(
+    binaryPath: string,
+    metadataPath: string,
+    backupPath: string,
+    backupMetadataPath: string,
+    existingWasMoved: boolean,
+    existingMetadataWasMoved: boolean,
+    binaryReplaced: boolean,
+    metadataReplaced: boolean,
+  ): Promise<void> {
+    if (binaryReplaced) await this.options.fileSystem.remove(binaryPath);
+    if (metadataReplaced) await this.options.fileSystem.remove(metadataPath);
+    if (existingWasMoved && !(await this.options.fileSystem.exists(binaryPath))) {
+      await this.options.fileSystem.rename(backupPath, binaryPath);
+    }
+    if (existingMetadataWasMoved && !(await this.options.fileSystem.exists(metadataPath))) {
+      await this.options.fileSystem.rename(backupMetadataPath, metadataPath);
     }
   }
 
@@ -120,4 +161,9 @@ export class ToolReleaseManager {
     }
     return { ...release, commitSha: resolved.commitSha };
   }
+}
+
+function normalizeVersion(value: string): string {
+  const match = value.match(/\b\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\b/);
+  return match?.[0] ?? value.trim().replace(/^v/, '');
 }

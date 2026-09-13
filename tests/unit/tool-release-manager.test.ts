@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ToolReleaseManager, type ToolDefinition } from '../../src/services/tool-release-manager.js';
 import type { ToolAssetInstaller, ToolRelease, ToolReleaseClient } from '../../src/ports/tooling.js';
 import { FakeFileSystem } from '../fixtures/fakes.js';
+import type { LockLease, SourceLock } from '../../src/ports/lock.js';
 
 const tool: ToolDefinition = { id: 'tgrep', repo: 'microsoft/tgrep', binaryPath: '/bin/tgrep' };
 const release: ToolRelease = {
@@ -36,11 +37,28 @@ class FailingReplacementFileSystem extends FakeFileSystem {
   }
 }
 
+class FailingMetadataPublishFileSystem extends FakeFileSystem {
+  override async rename(from: string, to: string): Promise<void> {
+    if (to === '/bin/tgrep.json' && from.includes('.tmp-')) throw new Error('metadata publish failed');
+    await super.rename(from, to);
+  }
+}
+
+class RecordingSourceLock implements SourceLock {
+  readonly calls: string[] = [];
+  async acquire(key: string, owner: string, timeoutMs: number): Promise<LockLease> {
+    this.calls.push(`${key}:${owner}:${timeoutMs}`);
+    return { release: async () => undefined };
+  }
+}
+
+const lock = () => new RecordingSourceLock();
+
 describe('ToolReleaseManager', () => {
   it('previews without confirmation and does not download', async () => {
     const client = new FakeToolClient({ ...release, assets: [{ ...release.assets[0]!, sha256: 'a'.repeat(64) }] });
     const fileSystem = new FakeFileSystem();
-    const result = await new ToolReleaseManager({ fileSystem, client, platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, false);
+    const result = await new ToolReleaseManager({ fileSystem, client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, false);
     expect(result).toMatchObject({ preview: true, release: { tag: 'v1.0.6' } });
     expect(client.calls).toEqual(['list:microsoft/tgrep', 'resolve:microsoft/tgrep:v1.0.6']);
   });
@@ -48,26 +66,26 @@ describe('ToolReleaseManager', () => {
   it('rejects a checksum mismatch and does not replace the binary', async () => {
     const client = new FakeToolClient({ ...release, assets: [{ ...release.assets[0]!, sha256: 'a'.repeat(64) }] });
     const fileSystem = new FakeFileSystem();
-    await expect(new ToolReleaseManager({ fileSystem, client, platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true)).rejects.toThrow(/checksum mismatch/);
+    await expect(new ToolReleaseManager({ fileSystem, client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true)).rejects.toThrow(/checksum mismatch/);
   });
 
   it('rejects an asset without a checksum', async () => {
     const client = new FakeToolClient({ ...release, assets: [{ name: release.assets[0]!.name, platform: release.assets[0]!.platform, architecture: release.assets[0]!.architecture }] });
 
-    await expect(new ToolReleaseManager({ fileSystem: new FakeFileSystem(), client, platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(new FakeFileSystem()) }).install(tool, true)).rejects.toThrow(/checksum is required/);
+    await expect(new ToolReleaseManager({ fileSystem: new FakeFileSystem(), client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(new FakeFileSystem()) }).install(tool, true)).rejects.toThrow(/checksum is required/);
   });
 
   it('rejects a tag that does not resolve to an immutable commit SHA', async () => {
     const client = new FakeToolClient();
     client.resolveTagValue = { commitSha: 'main' };
 
-    await expect(new ToolReleaseManager({ fileSystem: new FakeFileSystem(), client, platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(new FakeFileSystem()) }).install(tool, false)).rejects.toThrow(/commit SHA/);
+    await expect(new ToolReleaseManager({ fileSystem: new FakeFileSystem(), client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(new FakeFileSystem()) }).install(tool, false)).rejects.toThrow(/commit SHA/);
   });
 
   it('always selects the newest stable release and persists its resolved SHA', async () => {
     const fileSystem = new FakeFileSystem();
     const client = new FakeToolClient({ ...release, assets: [{ ...release.assets[0]!, sha256: '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a' }] });
-    const result = await new ToolReleaseManager({ fileSystem, client, platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true, '0.9.0');
+    const result = await new ToolReleaseManager({ fileSystem, client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true, '0.9.0');
 
     expect(result).toMatchObject({ tag: 'v1.0.6', commitSha: '0123456789abcdef0123456789abcdef01234567' });
     await expect(fileSystem.readText('/bin/tgrep.json')).resolves.toContain('0123456789abcdef0123456789abcdef01234567');
@@ -76,7 +94,7 @@ describe('ToolReleaseManager', () => {
   it('selects only a stable release and atomically installs a verified asset', async () => {
     const client = new FakeToolClient({ ...release, assets: [{ ...release.assets[0]!, sha256: '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a' }] });
     const fileSystem = new FakeFileSystem();
-    const result = await new ToolReleaseManager({ fileSystem, client, platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true);
+    const result = await new ToolReleaseManager({ fileSystem, client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true);
     expect(result).toMatchObject({ toolId: 'tgrep', tag: 'v1.0.6', path: '/bin/tgrep' });
   });
 
@@ -85,7 +103,34 @@ describe('ToolReleaseManager', () => {
     const fileSystem = new FailingReplacementFileSystem();
     await fileSystem.writeText('/bin/tgrep', 'previous');
 
-    await expect(new ToolReleaseManager({ fileSystem, client, platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true)).rejects.toThrow(/replacement failed/);
+    await expect(new ToolReleaseManager({ fileSystem, client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true)).rejects.toThrow(/replacement failed/);
     await expect(fileSystem.readText('/bin/tgrep')).resolves.toBe('previous');
+  });
+
+  it('serializes confirmed installs with the per-tool filesystem lock', async () => {
+    const fileSystem = new FakeFileSystem();
+    const client = new FakeToolClient({ ...release, assets: [{ ...release.assets[0]!, sha256: '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a' }] });
+    const sourceLock = new RecordingSourceLock();
+    await new ToolReleaseManager({ fileSystem, client, sourceLock, platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true);
+
+    expect(sourceLock.calls[0]).toContain('tool:microsoft/tgrep:tgrep');
+  });
+
+  it('requires exact normalized tool version equality', async () => {
+    const fileSystem = new FakeFileSystem();
+    const client = new FakeToolClient({ ...release, assets: [{ ...release.assets[0]!, sha256: '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a' }] });
+
+    await expect(new ToolReleaseManager({ fileSystem, client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.60', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true)).rejects.toThrow(/does not match/);
+  });
+
+  it('restores the prior binary and metadata pair when metadata publication fails', async () => {
+    const fileSystem = new FailingMetadataPublishFileSystem();
+    const client = new FakeToolClient({ ...release, assets: [{ ...release.assets[0]!, sha256: '4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a' }] });
+    await fileSystem.writeText('/bin/tgrep', 'previous');
+    await fileSystem.writeText('/bin/tgrep.json', JSON.stringify({ tag: 'v0.9.0' }));
+
+    await expect(new ToolReleaseManager({ fileSystem, client, sourceLock: lock(), platform: 'macos', architecture: 'arm64', versionOf: async () => '1.0.6', assetInstaller: new FakeAssetInstaller(fileSystem) }).install(tool, true)).rejects.toThrow(/metadata publish failed/);
+    await expect(fileSystem.readText('/bin/tgrep')).resolves.toBe('previous');
+    await expect(fileSystem.readText('/bin/tgrep.json')).resolves.toContain('v0.9.0');
   });
 });
