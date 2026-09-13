@@ -72,6 +72,31 @@ describe('skill-router CLI', () => {
     expect(called).toBe(false);
   });
 
+  it('activates a selected skill for the requested session', async () => {
+    let activated: string | undefined;
+    const result = await runCli(['use', 'rtk-cli-filter', '--session', 'session-a'], {
+      catalog,
+      activate: async (skill, sessionId) => {
+        activated = `${skill.id}:${sessionId}`;
+        return '/cache/sessions/session-a/active/rtk';
+      },
+    });
+
+    expect(result.code).toBe(0);
+    expect(activated).toBe('rtk-cli-filter:session-a');
+    expect(result.output).toContain('/cache/sessions/session-a/active/rtk');
+  });
+
+  it('returns an activation error when the selected skill is unavailable', async () => {
+    const result = await runCli(['use', 'rtk-cli-filter', '--session', 'session-a'], {
+      catalog,
+      activate: async () => { throw new Error('skill is not installed'); },
+    });
+
+    expect(result.code).toBe(2);
+    expect(result.output).toContain('skill is not installed');
+  });
+
   it('routes confirmed global tooling installation to the release manager', async () => {
     let installed: string | undefined;
     const result = await runCli(['install-tool', 'tgrep', '--confirm'], {

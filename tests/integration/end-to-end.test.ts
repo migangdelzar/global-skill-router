@@ -81,6 +81,12 @@ skills:
     await expect(fileSystem.exists(`${activeRoot}/SKILL.md`)).resolves.toBe(true);
     await expect(fileSystem.exists(`${activeRoot}/sibling/SKILL.md`)).resolves.toBe(false);
 
+    const use = await runCliFromDisk(['use', 'demo', '--session', 'session-b'], catalogPath, {
+      cacheRoot: '/cache', fileSystem, clock, github: new DiskGitHub(), archiveExtractor: new DiskExtractor(fileSystem),
+    });
+    expect(use.code).toBe(0);
+    await expect(fileSystem.exists('/cache/sessions/session-b/active/owner%2Frepo-skills%2Fdemo/SKILL.md')).resolves.toBe(true);
+
     const previewClean = await runCliFromDisk(['clean', '--session', 'session-a'], catalogPath, {
       cacheRoot: '/cache',
       fileSystem,

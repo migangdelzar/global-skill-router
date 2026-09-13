@@ -53,6 +53,35 @@ describe('SessionManagerService', () => {
     await expect(fileSystem.exists(artifact.objectPath)).resolves.toBe(true);
   });
 
+  it.each([
+    ['repo', { repo: 'other/repo' }],
+    ['skill path', { skillPath: 'skills/other' }],
+    ['tag', { tag: 'v2.0.0' }],
+    ['SHA', { commitSha: 'f'.repeat(40) }],
+  ])('rejects a metadata %s mismatch before activation', async (_, mismatch) => {
+    const fileSystem = new FakeFileSystem();
+    await fileSystem.mkdir(artifact.objectPath);
+    await fileSystem.writeText(`${artifact.objectPath}.json`, JSON.stringify({ ...artifact, ...mismatch }));
+    const manager = new SessionManagerService({
+      root: '/cache', fileSystem, clock: new FakeClock(), abandonedTtlMs: 60_000,
+    });
+
+    await expect(manager.activate('session-a', artifact)).rejects.toThrow(/does not match/);
+  });
+
+  it.each(['../secret', '/absolute', 'C:\\secret', 'skills\\demo', 'skills/../secret'])
+    ('rejects unsafe skill path %s before resolving it', async (skillPath) => {
+      const fileSystem = new FakeFileSystem();
+      const unsafeArtifact = { ...artifact, skillPath };
+      await fileSystem.mkdir(unsafeArtifact.objectPath);
+      await fileSystem.writeText(`${unsafeArtifact.objectPath}.json`, JSON.stringify(unsafeArtifact));
+      const manager = new SessionManagerService({
+        root: '/cache', fileSystem, clock: new FakeClock(), abandonedTtlMs: 60_000,
+      });
+
+      await expect(manager.activate('session-a', unsafeArtifact)).rejects.toThrow(/unsafe skill path/);
+    });
+
   it('collects sessions older than the configured TTL', async () => {
     const fileSystem = new FakeFileSystem();
     const clock = new FakeClock();

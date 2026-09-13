@@ -42,7 +42,8 @@ export class MetadataCacheService implements MetadataCache {
 
   async getLatest(repo: string, sessionId: string): Promise<MetadataRecord> {
     const sessionKey = `${repo}:${sessionId}`;
-    const successfulCheck = this.successfulChecks.get(sessionKey);
+    const persistedState = await this.readSessionState(repo, sessionId);
+    const successfulCheck = this.successfulChecks.get(sessionKey) ?? persistedState?.record;
     if (successfulCheck !== undefined) return successfulCheck;
     const current = await this.read(repo);
     if (current !== null && this.isFresh(current)) {
@@ -50,7 +51,7 @@ export class MetadataCacheService implements MetadataCache {
       return current;
     }
     const negativeCacheKey = sessionKey;
-    const failedAt = this.negativeCache.get(negativeCacheKey);
+    const failedAt = this.negativeCache.get(negativeCacheKey) ?? persistedState?.failedAt;
     if (failedAt !== undefined && this.options.clock.now().getTime() - failedAt < NEGATIVE_CACHE_MS) {
       if (current !== null) return current;
       throw new MetadataRefreshError(repo, new Error('negative cache window is active'));
@@ -70,7 +71,8 @@ export class MetadataCacheService implements MetadataCache {
         return rechecked;
       }
 
-      const recheckedFailureAt = this.negativeCache.get(negativeCacheKey);
+      const recheckedState = await this.readSessionState(repo, sessionId);
+      const recheckedFailureAt = this.negativeCache.get(negativeCacheKey) ?? recheckedState?.failedAt;
       if (
         recheckedFailureAt !== undefined &&
         this.options.clock.now().getTime() - recheckedFailureAt < NEGATIVE_CACHE_MS
@@ -92,16 +94,23 @@ export class MetadataCacheService implements MetadataCache {
           expiresAt: expiresAt.toISOString(),
         };
         await this.write(repo, record, sessionId);
+        await this.writeSessionSuccess(repo, sessionId, record);
         this.successfulChecks.set(sessionKey, record);
         return record;
       } catch (error) {
-        this.negativeCache.set(negativeCacheKey, this.options.clock.now().getTime());
+        const failedAt = this.options.clock.now();
+        this.negativeCache.set(negativeCacheKey, failedAt.getTime());
+        await this.writeSessionFailure(repo, sessionId, failedAt);
         if (rechecked !== null) return rechecked;
         throw new MetadataRefreshError(repo, error);
       }
     } finally {
       await lease.release();
     }
+  }
+
+  async readCached(repo: string): Promise<MetadataRecord | null> {
+    return this.read(repo);
   }
 
   private async read(repo: string): Promise<MetadataRecord | null> {
@@ -114,6 +123,40 @@ export class MetadataCacheService implements MetadataCache {
     } catch {
       return null;
     }
+  }
+
+  private async readSessionState(repo: string, sessionId: string): Promise<{ record?: MetadataRecord; failedAt?: number } | null> {
+    const path = sessionStatePath(this.options.cacheRoot, repo, sessionId);
+    if (!(await this.options.fileSystem.exists(path))) return null;
+    try {
+      const value = JSON.parse(await this.options.fileSystem.readText(path)) as Record<string, unknown>;
+      if (value.repo !== repo || value.sessionId !== sessionId) return null;
+      if (value.status === 'success' && isMetadataRecord(value.record) && value.record.repo === repo) {
+        return { record: value.record };
+      }
+      if (value.status === 'negative' && typeof value.failedAt === 'string' && !Number.isNaN(Date.parse(value.failedAt))) {
+        return { failedAt: Date.parse(value.failedAt) };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeSessionSuccess(repo: string, sessionId: string, record: MetadataRecord): Promise<void> {
+    await this.writeSessionState(repo, sessionId, { repo, sessionId, status: 'success', record });
+  }
+
+  private async writeSessionFailure(repo: string, sessionId: string, failedAt: Date): Promise<void> {
+    await this.writeSessionState(repo, sessionId, { repo, sessionId, status: 'negative', failedAt: failedAt.toISOString() });
+  }
+
+  private async writeSessionState(repo: string, sessionId: string, value: Record<string, unknown>): Promise<void> {
+    const path = sessionStatePath(this.options.cacheRoot, repo, sessionId);
+    const temporaryPath = `${path}.${this.temporaryFileSequence++}.tmp`;
+    await this.options.fileSystem.mkdir(`${this.options.cacheRoot}/sessions/${encodeURIComponent(sessionId)}/metadata`, 0o700);
+    await this.options.fileSystem.writeText(temporaryPath, JSON.stringify(value));
+    await this.options.fileSystem.rename(temporaryPath, path);
   }
 
   private async write(
@@ -140,4 +183,8 @@ export class MetadataCacheService implements MetadataCache {
       : 0.5;
     return Math.round((random * 2 - 1) * MAX_JITTER_MS);
   }
+}
+
+function sessionStatePath(cacheRoot: string, repo: string, sessionId: string): string {
+  return `${cacheRoot}/sessions/${encodeURIComponent(sessionId)}/metadata/${encodeURIComponent(repo)}.json`;
 }

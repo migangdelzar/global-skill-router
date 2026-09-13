@@ -82,6 +82,13 @@ export class ArtifactCacheService {
     }
   }
 
+  async readCached(release: ResolvedRelease, skillPath: string): Promise<CachedArtifact | null> {
+    validateSkillPath(skillPath);
+    validateCommitSha(release.commitSha);
+    const objectPath = artifactPath(this.options.cacheRoot, release, skillPath);
+    return this.readExisting(`${objectPath}.json`, release, skillPath, objectPath);
+  }
+
   private async readExisting(
     metadataPath: string,
     release: ResolvedRelease,

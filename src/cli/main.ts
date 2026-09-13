@@ -33,6 +33,7 @@ const TOOL_DEFINITIONS: Readonly<Record<ManagedToolId, ToolDefinition>> = {
 
 export interface CliDependencies {
   catalog: readonly SkillEntry[];
+  activate?: (skill: SkillEntry, sessionId: string) => Promise<string>;
   install?: (skill: SkillEntry) => Promise<void>;
   update?: (skill: SkillEntry) => Promise<void>;
   clean?: (sessionId?: string) => Promise<void>;
@@ -76,9 +77,17 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
   }
   if (command === 'use') {
     const skill = dependencies.catalog.find((entry) => entry.id === rest[0]);
-    return skill === undefined
-      ? { code: 1, output: `Unknown skill: ${rest[0] ?? ''}` }
-      : { code: 0, output: `selected ${skill.id}` };
+    if (skill === undefined) return { code: 1, output: `Unknown skill: ${rest[0] ?? ''}` };
+    if (dependencies.activate === undefined) return { code: 2, output: 'use is unavailable in this composition' };
+    const sessionIndex = rest.indexOf('--session');
+    const sessionId = sessionIndex >= 0 ? rest[sessionIndex + 1] : undefined;
+    if (sessionId === undefined) return { code: 2, output: 'use requires --session <id>' };
+    try {
+      const path = await dependencies.activate(skill, sessionId);
+      return { code: 0, output: `activated ${skill.id} -> ${path}` };
+    } catch (error) {
+      return { code: 2, output: `Unable to activate ${skill.id}: ${error instanceof Error ? error.message : String(error)}` };
+    }
   }
   return { code: 1, output: 'Usage: skill-router list|doctor|explain|use|install|update|install-tool|update-tool|clean' };
 }
@@ -137,6 +146,7 @@ export async function runCliFromDisk(
     architecture: target.architecture,
     versionOf: toolVersion,
     assetInstaller: new ArchiveToolAssetInstaller(),
+    sourceLock,
   });
   const activate = async (skill: SkillEntry): Promise<void> => {
     const sessionId = sessionIdFromArgs(args);
@@ -144,8 +154,16 @@ export async function runCliFromDisk(
     const artifact = await artifacts.ensure(metadataRecord.release, skill.skillPath);
     await sessions.activate(sessionId, artifact);
   };
+  const activateCached = async (skill: SkillEntry, sessionId: string): Promise<string> => {
+    const metadataRecord = await metadata.readCached(skill.source);
+    if (metadataRecord === null) throw new Error(`no cached metadata for ${skill.source}`);
+    const artifact = await artifacts.readCached(metadataRecord.release, skill.skillPath);
+    if (artifact === null) throw new Error(`skill ${skill.id} is not installed; run install with --confirm`);
+    return sessions.activate(sessionId, artifact);
+  };
   return runCli(args, {
     catalog,
+    activate: activateCached,
     tooling: new ToolingRegistry(new PathToolLocator()),
     installTool: (toolId, confirm) => releaseManager.install(TOOL_DEFINITIONS[toolId], confirm),
     install: activate,

@@ -198,6 +198,22 @@ describe('MetadataCacheService', () => {
     expect(resolver.calls).toEqual(['owner/repo', 'owner/repo']);
   });
 
+  it('persists negative-cache state across cache instances for the same session', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new FakeFileSystem();
+    const firstResolver = new StubReleaseResolver();
+    firstResolver.error = new Error('GitHub unavailable');
+    await expect(createCache(clock, fileSystem, firstResolver).getLatest('owner/repo', 'session-a'))
+      .rejects.toThrow(MetadataRefreshError);
+
+    const secondResolver = new StubReleaseResolver();
+    secondResolver.error = new Error('GitHub unavailable');
+    await expect(createCache(clock, fileSystem, secondResolver).getLatest('owner/repo', 'session-a'))
+      .rejects.toThrow(MetadataRefreshError);
+
+    expect(secondResolver.calls).toEqual([]);
+  });
+
   it('does not retry a failed refresh for a same-session waiter queued on the lock', async () => {
     const clock = new ManualClock();
     const fileSystem = new FakeFileSystem();
@@ -284,6 +300,20 @@ describe('MetadataCacheService', () => {
 
     expect(second).toEqual(first);
     expect(resolver.calls).toEqual(['owner/repo']);
+  });
+
+  it('persists successful once-per-session state across cache instances', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new FakeFileSystem();
+    const firstResolver = new StubReleaseResolver();
+    const first = await createCache(clock, fileSystem, firstResolver).getLatest('owner/repo', 'session-a');
+    clock.advance(DAY_MS + HOUR_MS);
+
+    const secondResolver = new StubReleaseResolver();
+    const second = await createCache(clock, fileSystem, secondResolver).getLatest('owner/repo', 'session-a');
+
+    expect(second).toEqual(first);
+    expect(secondResolver.calls).toEqual([]);
   });
 
   it('creates metadata directories with private permissions', async () => {

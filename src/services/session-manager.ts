@@ -36,6 +36,7 @@ export class SessionManagerService {
 
   async activate(sessionId: string, artifact: CachedArtifact): Promise<string> {
     validateSessionId(sessionId);
+    validateSkillPath(artifact.skillPath);
     const metadataPath = `${artifact.objectPath}.json`;
     if (!(await this.options.fileSystem.exists(metadataPath))) {
       throw new SessionIntegrityError('shared artifact metadata is missing');
@@ -44,7 +45,10 @@ export class SessionManagerService {
     if (
       metadata.commitSha !== artifact.commitSha ||
       metadata.objectPath !== artifact.objectPath ||
-      metadata.sha256 !== artifact.sha256
+      metadata.sha256 !== artifact.sha256 ||
+      metadata.repo !== artifact.repo ||
+      metadata.skillPath !== artifact.skillPath ||
+      metadata.tag !== artifact.tag
     ) {
       throw new SessionIntegrityError('artifact metadata does not match the shared object');
     }
@@ -91,5 +95,17 @@ export class SessionManagerService {
 function validateSessionId(sessionId: string): void {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(sessionId)) {
     throw new SessionIntegrityError(`unsafe session id ${sessionId}`);
+  }
+}
+
+function validateSkillPath(skillPath: string): void {
+  if (
+    skillPath.length === 0 ||
+    skillPath.startsWith('/') ||
+    /^[A-Za-z]:[\\/]/.test(skillPath) ||
+    skillPath.includes('\\') ||
+    skillPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..')
+  ) {
+    throw new SessionIntegrityError(`unsafe skill path ${skillPath}`);
   }
 }
