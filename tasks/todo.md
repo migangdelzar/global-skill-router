@@ -5,7 +5,7 @@
 - [x] Design minimal architecture and version/cache policy
 - [x] Write and review implementation plan
 - [x] Implement catalog and router behavior, including tgrep/RTK tooling policy
-- [ ] Add tests for release-only resolution and cache stampede protection
+- [x] Add tests for release-only resolution and cache stampede protection
 - [ ] Add tests for session activation and cleanup
 - [ ] Add RTK release-managed global tooling with rollback safeguards
 - [ ] Run verification: tests, typecheck/lint, and deterministic cache scenarios
@@ -24,4 +24,4 @@
 - `tgrep` remains the repository-search command; RTK must exclude it from command rewriting.
 - RTK is an optional CLI-output adjunct for noisy shell tasks, disabled for exact raw-output requests.
 - Task 1 bootstrap is implemented and review-approved; Task 2 catalog/router behavior is complete.
-- Task 3 stable-release resolver is implemented and review-approved; Task 4 is active.
+- Task 3 stable-release resolver is implemented and review-approved; Task 4 is implemented and verified.

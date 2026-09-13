@@ -1,0 +1,44 @@
+# Task 4 Report: Prevent Metadata Cache Stampedes
+
+## Status
+
+Complete.
+
+## Commit
+
+`feat: prevent metadata cache stampedes`
+
+## Changed files
+
+- `src/domain/cache.ts`
+- `src/services/metadata-cache.ts`
+- `src/services/source-lock.ts`
+- `src/index.ts`
+- `tests/unit/metadata-cache.test.ts`
+- `tests/unit/source-lock.test.ts`
+
+## Behavior implemented
+
+- Reads fresh verified metadata without calling the release resolver.
+- Refreshes stale metadata under a per-repository single-flight lock.
+- Rechecks freshness after lock acquisition so concurrent callers reuse the first refresh.
+- Uses a 24-hour TTL with bounded ±1-hour jitter from the injected clock randomness.
+- Persists metadata through a unique temporary file followed by atomic rename.
+- Reclaims locks whose age reaches the configured timeout.
+- Returns stale verified metadata when GitHub refresh fails.
+- Raises an actionable error when no verified metadata exists and the first refresh fails.
+
+## TDD evidence
+
+- Red: focused tests failed before implementation because `src/domain/cache.js` and `src/services/source-lock.js` were missing.
+- Green: focused suite passed with 9/9 tests.
+- Refactor: lock state and jitter handling were simplified without changing behavior; focused tests remained 9/9.
+
+## Verification
+
+- `npm test -- --run tests/unit/metadata-cache.test.ts tests/unit/source-lock.test.ts` — PASS, 9/9.
+- `npm run typecheck` — PASS.
+- `npm test -- --run` — PASS, 40/40.
+- `git diff --check` — PASS.
+
+The repository has no configured `origin`, so this commit could not be pushed. PDF/JSON data files and RTK/global files were not modified.

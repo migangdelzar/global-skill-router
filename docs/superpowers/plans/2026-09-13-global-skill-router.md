@@ -306,7 +306,7 @@ export interface MetadataCache {
 }
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover:
 
@@ -318,23 +318,23 @@ Cover:
 6. A GitHub failure returns the last verified metadata when available.
 7. A first-ever GitHub failure returns an actionable error.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- --run tests/unit/metadata-cache.test.ts tests/unit/source-lock.test.ts`
 
 Expected: FAIL because cache and lock behavior are not implemented.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Use per-repository lock keys, re-check freshness after acquiring a lock, and calculate jitter from injected `Clock.random()`. Persist metadata through atomic temporary-file rename.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- --run tests/unit/metadata-cache.test.ts tests/unit/source-lock.test.ts && npm run typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/domain/cache.ts src/services/metadata-cache.ts tests/unit/metadata-cache.test.ts tests/unit/source-lock.test.ts
