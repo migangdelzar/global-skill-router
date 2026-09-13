@@ -1,0 +1,9 @@
+export interface FileSystem {
+  exists(path: string): Promise<boolean>;
+  readText(path: string): Promise<string>;
+  writeText(path: string, content: string): Promise<void>;
+  mkdir(path: string): Promise<void>;
+  remove(path: string): Promise<void>;
+  rename(from: string, to: string): Promise<void>;
+  copyTree(from: string, to: string): Promise<void>;
+}
