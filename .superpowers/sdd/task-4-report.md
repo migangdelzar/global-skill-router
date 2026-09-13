@@ -68,3 +68,16 @@ The repository has no configured `origin`, so this commit could not be pushed. P
 - `npm run build` — PASS.
 - `npm test -- --run` — PASS, 65/65.
 - `git diff --check` — PASS.
+
+## Third review-fix verification
+
+- Replaced the shared lock-directory publication gap with a permanent per-repository claims directory and unique atomically-created claim files.
+- Claim filenames include the owner and unique process/token data; contenders select the lexicographically smallest visible claim deterministically.
+- Stale reclaim and lease release remove only the exact claim path, so an old lease cannot remove replacement ownership.
+- Preserved owner, PID, session ID, creation timestamp, and token metadata in every claim.
+- Added a delayed-filesystem contention regression that holds the first claim operation after atomic file creation and verifies no shared exclusive-directory primitive is used.
+- Red: the regression failed against the prior implementation because it called `createExclusiveDirectory`.
+- Green: `npm test -- --run tests/unit/source-lock.test.ts tests/unit/metadata-cache.test.ts` — PASS, 17/17.
+- Full verification: `npm run typecheck`, `npm run build`, `npm test -- --run` — PASS, 66/66; `git diff --check` — PASS.
+- Commit: `0f901f8 fix: harden filesystem lock races`.
+- Only Task 4 lock/fixture/port/adapter/test files and this report were changed; unrelated Task 5/6/7/8/10 work was preserved.
