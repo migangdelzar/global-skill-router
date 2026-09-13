@@ -36,13 +36,20 @@ export class MetadataRefreshError extends Error {
 export class MetadataCacheService implements MetadataCache {
   private temporaryFileSequence = 0;
   private readonly negativeCache = new Map<string, number>();
+  private readonly successfulChecks = new Map<string, MetadataRecord>();
 
   constructor(private readonly options: MetadataCacheOptions) {}
 
   async getLatest(repo: string, sessionId: string): Promise<MetadataRecord> {
+    const sessionKey = `${repo}:${sessionId}`;
+    const successfulCheck = this.successfulChecks.get(sessionKey);
+    if (successfulCheck !== undefined) return successfulCheck;
     const current = await this.read(repo);
-    if (current !== null && this.isFresh(current)) return current;
-    const negativeCacheKey = `${repo}:${sessionId}`;
+    if (current !== null && this.isFresh(current)) {
+      this.successfulChecks.set(sessionKey, current);
+      return current;
+    }
+    const negativeCacheKey = sessionKey;
     const failedAt = this.negativeCache.get(negativeCacheKey);
     if (failedAt !== undefined && this.options.clock.now().getTime() - failedAt < NEGATIVE_CACHE_MS) {
       if (current !== null) return current;
@@ -58,7 +65,10 @@ export class MetadataCacheService implements MetadataCache {
 
     try {
       const rechecked = await this.read(repo);
-      if (rechecked !== null && this.isFresh(rechecked)) return rechecked;
+      if (rechecked !== null && this.isFresh(rechecked)) {
+        this.successfulChecks.set(sessionKey, rechecked);
+        return rechecked;
+      }
 
       const recheckedFailureAt = this.negativeCache.get(negativeCacheKey);
       if (
@@ -82,6 +92,7 @@ export class MetadataCacheService implements MetadataCache {
           expiresAt: expiresAt.toISOString(),
         };
         await this.write(repo, record, sessionId);
+        this.successfulChecks.set(sessionKey, record);
         return record;
       } catch (error) {
         this.negativeCache.set(negativeCacheKey, this.options.clock.now().getTime());
@@ -113,7 +124,7 @@ export class MetadataCacheService implements MetadataCache {
     const metadataDirectory = `${this.options.cacheRoot}/metadata`;
     const path = metadataPathForRepo(this.options.cacheRoot, repo);
     const temporaryPath = `${path}.${sessionId}.${this.temporaryFileSequence++}.tmp`;
-    await this.options.fileSystem.mkdir(metadataDirectory);
+    await this.options.fileSystem.mkdir(metadataDirectory, 0o700);
     await this.options.fileSystem.writeText(temporaryPath, JSON.stringify(record));
     await this.options.fileSystem.rename(temporaryPath, path);
   }

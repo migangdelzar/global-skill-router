@@ -51,7 +51,7 @@ export class ArtifactCacheService {
       if (existing !== null) return existing;
 
       const temporaryPath = `${objectPath}.tmp-${this.temporarySequence++}`;
-      await this.options.fileSystem.mkdir(temporaryPath);
+      await this.options.fileSystem.mkdir(temporaryPath, 0o700);
       try {
         const archive = await this.options.download(release.repo, release.tag);
         const sha256 = createHash('sha256').update(archive).digest('hex');

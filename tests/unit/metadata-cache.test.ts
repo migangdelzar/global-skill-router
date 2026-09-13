@@ -271,4 +271,27 @@ describe('MetadataCacheService', () => {
     await expect(createCache(clock, fileSystem, resolver).getLatest('owner/repo', 'session-a'))
       .rejects.toThrow(/Unable to refresh metadata for owner\/repo.*try again/i);
   });
+
+  it('reuses a successful metadata check for the same session after its TTL expires', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new FakeFileSystem();
+    const resolver = new StubReleaseResolver();
+    const cache = createCache(clock, fileSystem, resolver);
+
+    const first = await cache.getLatest('owner/repo', 'session-a');
+    clock.advance(DAY_MS + HOUR_MS);
+    const second = await cache.getLatest('owner/repo', 'session-a');
+
+    expect(second).toEqual(first);
+    expect(resolver.calls).toEqual(['owner/repo']);
+  });
+
+  it('creates metadata directories with private permissions', async () => {
+    const fileSystem = new FakeFileSystem();
+    const resolver = new StubReleaseResolver();
+
+    await createCache(new ManualClock(), fileSystem, resolver).getLatest('owner/repo', 'session-a');
+
+    expect(fileSystem.calls.some(([method, path, mode]) => method === 'mkdir' && path === '/cache/metadata' && Number(mode) === 0o700)).toBe(true);
+  });
 });

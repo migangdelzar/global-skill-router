@@ -54,6 +54,7 @@ describe('ArtifactCacheService', () => {
     expect(extractor.calls).toHaveLength(1);
     expect(lock.calls).toEqual(['artifact:owner/repo:0123456789abcdef0123456789abcdef01234567']);
     expect(fileSystem.calls.some(([method]) => method === 'rename')).toBe(true);
+    expect(fileSystem.calls.some(([method, path, mode]) => method === 'mkdir' && path === `${result.objectPath}.tmp-0` && Number(mode) === 0o700)).toBe(true);
   });
 
   it('reuses an existing immutable artifact without downloading', async () => {
