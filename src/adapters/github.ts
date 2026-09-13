@@ -16,12 +16,13 @@ export class GitHubReleaseClient implements GitHubClient {
   }
 
   async resolveTag(repo: string, tag: string): Promise<{ commitSha: string }> {
-    const response = await fetch(`https://api.github.com/repos/${repo}/commits/${encodeURIComponent(tag)}`, {
+    const response = await fetch(`https://api.github.com/repos/${repo}/git/ref/tags/${encodeURIComponent(tag)}`, {
       headers: { accept: 'application/vnd.github+json', 'user-agent': 'global-skill-router' },
     });
     if (!response.ok) throw new Error(`GitHub tag resolution failed: ${response.status}`);
     const value = await response.json() as Record<string, unknown>;
-    return { commitSha: typeof value.sha === 'string' ? value.sha : '' };
+    const object = typeof value.object === 'object' && value.object !== null ? value.object as Record<string, unknown> : null;
+    return { commitSha: value.ref === `refs/tags/${tag}` && object !== null && typeof object.sha === 'string' ? object.sha : '' };
   }
 
   async downloadTagArchive(repo: string, tag: string): Promise<Uint8Array> {
