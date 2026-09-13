@@ -8,8 +8,11 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
+  "engines": {
+    "node": ">=20.0.0 <21.0.0"
+  },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^20.0.0",
     "typescript": "^5.0.0",
     "vitest": "^3.0.0"
   }
