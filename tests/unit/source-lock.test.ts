@@ -78,6 +78,31 @@ describe('FileSystemSourceLock', () => {
     await expect(blocked).resolves.toBeDefined();
   });
 
+  it('reclaims and releases by lease-token path when a replacement races the old lease', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new FakeFileSystem();
+    fileSystem.rejectUnsafeConditionalRemoval = true;
+    const lock = createLock(fileSystem, clock);
+    const original = await lock.acquire('github:owner/repo', 'owner-a', 1_000, 'session-a');
+
+    clock.current = new Date(clock.current.getTime() + 1_001);
+    const replacement = await lock.acquire('github:owner/repo', 'owner-b', 1_000, 'session-b');
+
+    await original.release();
+    const blocked = lock.acquire('github:owner/repo', 'owner-c', 1_000, 'session-c');
+    let acquired = false;
+    void blocked.then(() => {
+      acquired = true;
+    });
+    await Promise.resolve();
+
+    expect(acquired).toBe(false);
+    expect(fileSystem.calls.some(([method]) => method === 'removeIfMatches')).toBe(false);
+
+    await replacement.release();
+    await expect(blocked).resolves.toBeDefined();
+  });
+
   it('keeps independent repositories independent', async () => {
     const clock = new ManualClock();
     const lock = createLock(new FakeFileSystem(), clock);

@@ -83,33 +83,37 @@ export class FileSystemSourceLock implements SourceLock {
     timeoutMs: number,
     sessionId = owner,
   ): Promise<LockLease> {
-    const path = `${this.options.lockRoot}/${encodeURIComponent(key)}.lock`;
+    const lockDirectory = `${this.options.lockRoot}/${encodeURIComponent(key)}.lock`;
+    const token = this.newToken();
+    const tokenPath = `${lockDirectory}/${token}.lock`;
     const content = JSON.stringify({
       key,
       owner,
       pid: this.options.processId ?? process.pid,
       sessionId,
       createdAt: this.options.clock.now().toISOString(),
-      token: this.newToken(),
+      token,
     } satisfies LockRecord);
     await this.options.fileSystem.mkdir(this.options.lockRoot);
 
     while (true) {
-      if (await this.tryCreate(path, content)) {
+      if (await this.options.fileSystem.createExclusiveDirectory(lockDirectory)) {
+        if (!(await this.tryCreate(tokenPath, content))) {
+          throw new Error(`Unable to create lock lease for ${key}`);
+        }
         return {
           release: async () => {
-            await this.options.fileSystem.removeIfMatches(path, content);
+            await this.options.fileSystem.removeFile(tokenPath);
+            await this.options.fileSystem.removeEmptyDirectory(lockDirectory);
           },
         };
       }
 
-      const existing = await this.readLock(path);
+      const existing = await this.readLock(lockDirectory);
       const now = this.options.clock.now().getTime();
       if (existing !== null && now - Date.parse(existing.createdAt) >= timeoutMs) {
-        const reclaimed = await this.options.fileSystem.removeIfMatches(
-          path,
-          existing.content,
-        );
+        const reclaimed = await this.options.fileSystem.removeFile(existing.path);
+        await this.options.fileSystem.removeEmptyDirectory(lockDirectory);
         if (reclaimed) continue;
       }
 
@@ -127,13 +131,15 @@ export class FileSystemSourceLock implements SourceLock {
   }
 
   private async readLock(
-    path: string,
-  ): Promise<{ content: string; createdAt: string } | null> {
+    lockDirectory: string,
+  ): Promise<{ path: string; createdAt: string } | null> {
     try {
-      const content = await this.options.fileSystem.readText(path);
-      const value: unknown = JSON.parse(content);
-      if (!isLockRecord(value)) return null;
-      return { content, createdAt: value.createdAt };
+      for (const entry of await this.options.fileSystem.list(lockDirectory)) {
+        const path = `${lockDirectory}/${entry}`;
+        const value: unknown = JSON.parse(await this.options.fileSystem.readText(path));
+        if (isLockRecord(value)) return { path, createdAt: value.createdAt };
+      }
+      return null;
     } catch {
       return null;
     }

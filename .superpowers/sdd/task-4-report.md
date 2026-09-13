@@ -56,3 +56,15 @@ The repository has no configured `origin`, so this commit could not be pushed. P
 - `git diff --check` — PASS.
 - Full suite: 57/58 passed; the only failure is the unrelated pre-existing Task 10 `ToolReleaseManager` checksum fixture (`tgrep-aarch64-apple-darwin.tar.gz`).
 - PDF/JSON data files and global/RTK files were not modified. No remote is configured, so the commit cannot be pushed.
+
+## Second review-fix verification
+
+- Replaced racy content-conditional lock deletion with an ownership-safe lock directory: each lease owns a unique token file path, and release/reclaim removes only that exact file before attempting an empty-directory removal.
+- Extended the `FileSystem` contract with exclusive directory creation, exact-file removal, and empty-directory removal; the Node adapter uses `mkdir`, `unlink`, and `rmdir` semantics that do not read then conditionally delete a shared lock path.
+- Added a regression test that rejects the old unsafe removal API while exercising stale reclaim, replacement ownership, and old-lease release.
+- Added a regression test proving same-session waiters re-check negative-cache state after acquiring the lock and do not retry a failed refresh.
+- `npm test -- --run tests/unit/source-lock.test.ts tests/unit/metadata-cache.test.ts` — PASS, 16/16.
+- `npm run typecheck` — PASS.
+- `npm run build` — PASS.
+- `npm test -- --run` — PASS, 65/65.
+- `git diff --check` — PASS.

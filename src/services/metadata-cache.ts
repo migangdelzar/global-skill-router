@@ -60,6 +60,15 @@ export class MetadataCacheService implements MetadataCache {
       const rechecked = await this.read(repo);
       if (rechecked !== null && this.isFresh(rechecked)) return rechecked;
 
+      const recheckedFailureAt = this.negativeCache.get(negativeCacheKey);
+      if (
+        recheckedFailureAt !== undefined &&
+        this.options.clock.now().getTime() - recheckedFailureAt < NEGATIVE_CACHE_MS
+      ) {
+        if (rechecked !== null) return rechecked;
+        throw new MetadataRefreshError(repo, new Error('negative cache window is active'));
+      }
+
       try {
         const release = await this.options.resolver.resolveLatestStable(repo);
         const checkedAt = this.options.clock.now();

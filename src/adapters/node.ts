@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, rm, rename, readdir, stat, cp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rm, rmdir, unlink, rename, readdir, stat, cp } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -27,13 +27,33 @@ export class NodeFileSystem implements FileSystem {
     }
   }
 
-  async removeIfMatches(path: string, content: string): Promise<boolean> {
+  async createExclusiveDirectory(path: string): Promise<boolean> {
     try {
-      if ((await readFile(path, 'utf8')) !== content) return false;
-      await rm(path);
+      await mkdir(path);
+      return true;
+    } catch (error) {
+      if ((error as { code?: string }).code === 'EEXIST') return false;
+      throw error;
+    }
+  }
+
+  async removeFile(path: string): Promise<boolean> {
+    try {
+      await unlink(path);
       return true;
     } catch (error) {
       if ((error as { code?: string }).code === 'ENOENT') return false;
+      throw error;
+    }
+  }
+
+  async removeEmptyDirectory(path: string): Promise<boolean> {
+    try {
+      await rmdir(path);
+      return true;
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === 'ENOENT' || code === 'ENOTEMPTY' || code === 'EEXIST') return false;
       throw error;
     }
   }

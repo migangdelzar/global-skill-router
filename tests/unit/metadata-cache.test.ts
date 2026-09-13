@@ -198,6 +198,34 @@ describe('MetadataCacheService', () => {
     expect(resolver.calls).toEqual(['owner/repo', 'owner/repo']);
   });
 
+  it('does not retry a failed refresh for a same-session waiter queued on the lock', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new FakeFileSystem();
+    const resolver = new StubReleaseResolver();
+    resolver.error = new Error('GitHub unavailable');
+
+    let allowFirstFailure: () => void = () => undefined;
+    const firstFailureAllowed = new Promise<void>((resolve) => {
+      allowFirstFailure = resolve;
+    });
+    const originalResolve = resolver.resolveLatestStable.bind(resolver);
+    resolver.resolveLatestStable = async (repo) => {
+      if (resolver.calls.length === 1) await firstFailureAllowed;
+      return originalResolve(repo);
+    };
+
+    const cache = createCache(clock, fileSystem, resolver);
+    const first = cache.getLatest('owner/repo', 'session-a');
+    await Promise.resolve();
+    const second = cache.getLatest('owner/repo', 'session-a');
+    await Promise.resolve();
+
+    allowFirstFailure();
+    await expect(first).rejects.toThrow(MetadataRefreshError);
+    await expect(second).rejects.toThrow(MetadataRefreshError);
+    expect(resolver.calls).toEqual(['owner/repo']);
+  });
+
   it('returns stale metadata from the negative cache without retrying GitHub', async () => {
     const clock = new ManualClock();
     const fileSystem = new FakeFileSystem();

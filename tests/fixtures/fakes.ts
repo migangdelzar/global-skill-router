@@ -19,6 +19,7 @@ export class FakeClock implements Clock {
 
 export class FakeFileSystem implements FileSystem {
   readonly calls: Array<readonly [string, ...string[]]> = [];
+  rejectUnsafeConditionalRemoval = false;
   private readonly files = new Map<string, string>();
   private readonly directories = new Set<string>();
 
@@ -55,7 +56,36 @@ export class FakeFileSystem implements FileSystem {
 
   async removeIfMatches(path: string, content: string): Promise<boolean> {
     this.calls.push(['removeIfMatches', path, content]);
+    if (this.rejectUnsafeConditionalRemoval) {
+      throw new Error('unsafe content-conditional removal invoked');
+    }
     if (this.files.get(path) !== content) return false;
+    this.files.delete(path);
+    return true;
+  }
+
+  async createExclusiveDirectory(path: string): Promise<boolean> {
+    this.calls.push(['createExclusiveDirectory', path]);
+    if (this.directories.has(path) || this.files.has(path)) return false;
+    this.directories.add(path);
+    return true;
+  }
+
+  async removeEmptyDirectory(path: string): Promise<boolean> {
+    this.calls.push(['removeEmptyDirectory', path]);
+    if (!this.directories.has(path)) return false;
+    const prefix = `${path}/`;
+    const hasChildren = [...this.files.keys(), ...this.directories].some(
+      (entry) => entry.startsWith(prefix),
+    );
+    if (hasChildren) return false;
+    this.directories.delete(path);
+    return true;
+  }
+
+  async removeFile(path: string): Promise<boolean> {
+    this.calls.push(['removeFile', path]);
+    if (!this.files.has(path)) return false;
     this.files.delete(path);
     return true;
   }
