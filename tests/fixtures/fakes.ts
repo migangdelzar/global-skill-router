@@ -94,7 +94,7 @@ export class FakeFileSystem implements FileSystem {
   }
 
   async mkdir(path: string, mode?: number): Promise<void> {
-    this.calls.push(['mkdir', path, mode === undefined ? '' : String(mode)]);
+    this.calls.push(mode === undefined ? ['mkdir', path] : ['mkdir', path, String(mode)]);
     this.directories.add(path);
   }
 
