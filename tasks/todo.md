@@ -3,7 +3,7 @@
 - [x] Restate goal and acceptance criteria
 - [x] Explore existing global Codex instructions and current workspace
 - [x] Design minimal architecture and version/cache policy
-- [ ] Write and review implementation plan
+- [x] Write and review implementation plan
 - [ ] Implement catalog and router behavior
 - [ ] Add tests for release-only resolution and cache stampede protection
 - [ ] Add tests for session activation and cleanup
