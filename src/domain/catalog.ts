@@ -156,6 +156,8 @@ function validateEntry(value: unknown, index: number): SkillEntry {
   const category = requiredString(value, 'category', index);
   const source = requiredString(value, 'source', index);
   const skillPath = requiredString(value, 'skillPath', index);
+  validateGitHubSource(source, index);
+  validateSkillPath(skillPath, index);
   const useWhen = requiredStringArray(value, 'useWhen', index);
   const conflictsWith = requiredStringArray(value, 'conflictsWith', index);
   const requires = requiredStringArray(value, 'requires', index);
@@ -182,6 +184,26 @@ function validateEntry(value: unknown, index: number): SkillEntry {
     requires: Object.freeze([...requires]),
     releasePolicy,
   };
+}
+
+function validateGitHubSource(source: string, index: number): void {
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$/.test(source)) {
+    throw new CatalogValidationError(`skills[${index}].source`, 'expected an allowlisted GitHub owner/repository');
+  }
+}
+
+function validateSkillPath(skillPath: string, index: number): void {
+  if (
+    skillPath !== '.' &&
+    (
+      skillPath.startsWith('/') ||
+      skillPath.includes('\\') ||
+      skillPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..') ||
+      !/^[A-Za-z0-9._/-]+$/.test(skillPath)
+    )
+  ) {
+    throw new CatalogValidationError(`skills[${index}].skillPath`, 'expected a safe relative path');
+  }
 }
 
 function requiredString(entry: CatalogRecord, field: (typeof requiredStrings)[number], index: number): string {

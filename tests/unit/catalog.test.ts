@@ -104,4 +104,37 @@ skills:
       releasePolicy: 'latest-stable-tag',
     });
   });
+
+  it.each([
+    ['https://github.com/owner/repo', 'source'],
+    ['owner/../repo', 'source'],
+  ])('rejects an unsafe GitHub source %s', (source, field) => {
+    expect(() => parseCatalog(`
+skills:
+  - id: unsafe-source
+    category: primary
+    source: ${source}
+    skill_path: skills/demo
+    use_when: [demo]
+    activation: automatic
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+`)).toThrow(new RegExp(field));
+  });
+
+  it.each(['../outside', '/absolute/path', 'skills/../outside', 'skills\\outside'])('rejects unsafe skill paths: %s', (skillPath) => {
+    expect(() => parseCatalog(`
+skills:
+  - id: unsafe-path
+    category: primary
+    source: owner/repo
+    skill_path: ${skillPath}
+    use_when: [demo]
+    activation: automatic
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+`)).toThrow(/skillPath/);
+  });
 });
