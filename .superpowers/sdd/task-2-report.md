@@ -33,3 +33,28 @@ Complete.
 - RTK is represented only as route metadata: `tgrep` remains the repository search command, and RTK is selected for noisy CLI work unless exact/raw output is requested.
 - The parser intentionally supports the committed catalog YAML subset without adding a dependency; a general-purpose YAML parser may be preferable if future catalog syntax expands.
 - The repository has no configured `origin`, so this local commit could not be pushed.
+
+## Review Fixes
+
+Addressed all High/Medium findings from `task-2-fix-brief.md`:
+
+- Replaced substring matching with token-boundary phrase matching, so generic categories such as `ui` cannot match inside words such as `build`.
+- Removed the duplicate `rtk-cli-filter` catalog entry and added duplicate-ID validation.
+- Preserved catalog roles for explicitly and project-forced skills; precedence now affects ordering only.
+- Made unknown explicit skill IDs fail closed without selecting an automatic route.
+- Normalized snake_case keys recursively for JSON catalog input.
+- Removed the duplicate unchecked Task 2 commit step from the implementation plan.
+
+## Review-Fix TDD and Verification
+
+- Red: added five regression tests; all five failed for the reported defects while the existing Task 2 tests remained green.
+- Green: focused Task 2 suites — PASS, 15/15.
+- Full suite: `npm test -- --run` — PASS, 25/25.
+- `npm run typecheck` — PASS.
+- `npm run build` — PASS.
+- `git diff --check` — PASS.
+
+## Review-Fix Commits
+
+- `fix: address Task 2 routing review findings`
+- `docs: record Task 2 review fixes`
