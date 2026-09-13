@@ -21,3 +21,4 @@
 - Shared verified cache persists; per-session activation state is disposable.
 - Per-source locks, TTL jitter, stale-cache serving, and atomic publication prevent cache stampedes.
 - RTK is separate global tooling: release-tag only, checksum/version verified, atomic replacement, rollback-capable, never session-cached.
+- Task 1 bootstrap is implemented and review-approved; Task 2 is next.

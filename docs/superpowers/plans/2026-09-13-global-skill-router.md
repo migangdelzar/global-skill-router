@@ -108,27 +108,27 @@ export interface LockLease {
 }
 ```
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Write `tests/unit/protocols.test.ts` with a fake clock, in-memory filesystem, GitHub client, and lock that satisfy each protocol and record calls.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- --run tests/unit/protocols.test.ts`
 
 Expected: FAIL because the protocol and fake modules do not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add the protocol declarations, package scripts (`test`, `typecheck`, `build`), strict compiler settings, and the smallest fakes needed by later tests.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- --run tests/unit/protocols.test.ts && npm run typecheck`
 
 Expected: PASS with zero failures and zero TypeScript errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json tsconfig.json vitest.config.ts src tests
