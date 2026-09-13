@@ -81,6 +81,15 @@ describe('skill router', () => {
     expect(result.primary?.id).toBe('emil-design-eng');
   });
 
+  it('does not match a short category inside a larger word', () => {
+    const result = route(
+      { task: 'Build an API' },
+      [skill({ id: 'ui-guidance', category: 'ui' })],
+    );
+
+    expect(result.primary).toBeNull();
+  });
+
   it('does not select taste without a website-analysis trigger', () => {
     const result = route(
       { task: 'Build a landing page' },
@@ -125,6 +134,44 @@ describe('skill router', () => {
     expect(explicit.rejected).toContainEqual({
       id: 'emil-design-eng',
       reason: 'conflicts with ui-ux-pro-max',
+    });
+  });
+
+  it('preserves adjunct and reviewer roles for forced skills', () => {
+    const adjunct = skill({
+      id: 'forced-adjunct',
+      category: 'adjunct',
+      activation: 'explicit',
+    });
+    const reviewer = skill({
+      id: 'forced-reviewer',
+      category: 'reviewer',
+      useWhen: ['review architecture'],
+    });
+
+    const explicit = route({ task: 'Anything', explicitSkillId: adjunct.id }, [adjunct]);
+    expect(explicit.primary).toBeNull();
+    expect(explicit.adjuncts.map((entry) => entry.id)).toEqual([adjunct.id]);
+
+    const projectForced = route(
+      { task: 'Anything', projectInstructions: `Use ${reviewer.id}` },
+      [reviewer],
+    );
+    expect(projectForced.primary).toBeNull();
+    expect(projectForced.adjuncts.map((entry) => entry.id)).toEqual([reviewer.id]);
+  });
+
+  it('fails closed when an explicitly requested skill is unavailable', () => {
+    const result = route(
+      { task: 'Improve animation', explicitSkillId: 'missing-skill' },
+      [skill({ id: 'emil-design-eng', useWhen: ['animation'] })],
+    );
+
+    expect(result.primary).toBeNull();
+    expect(result.adjuncts).toEqual([]);
+    expect(result.rejected).toContainEqual({
+      id: 'missing-skill',
+      reason: 'skill is not in the catalog',
     });
   });
 

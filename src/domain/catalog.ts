@@ -30,14 +30,22 @@ export function parseCatalog(source: string): readonly SkillEntry[] {
     throw new CatalogValidationError('skills', 'expected an array');
   }
 
-  return Object.freeze(document.skills.map((entry, index) => validateEntry(entry, index)));
+  const entries = document.skills.map((entry, index) => validateEntry(entry, index));
+  const seenIds = new Set<string>();
+  for (const [index, entry] of entries.entries()) {
+    if (seenIds.has(entry.id)) {
+      throw new CatalogValidationError(`skills[${index}].id`, `duplicate skill id "${entry.id}"`);
+    }
+    seenIds.add(entry.id);
+  }
+  return Object.freeze(entries);
 }
 
 function parseDocument(source: string): unknown {
   const trimmed = source.trim();
   if (trimmed.startsWith('{')) {
     try {
-      return JSON.parse(trimmed) as unknown;
+      return normalizeKeys(JSON.parse(trimmed) as unknown);
     } catch (error) {
       throw new CatalogValidationError('document', `invalid JSON (${String(error)})`);
     }
@@ -88,6 +96,15 @@ function parseDocument(source: string): unknown {
   }
 
   return { skills };
+}
+
+function normalizeKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeKeys);
+  if (!isRecord(value)) return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nestedValue]) => [normalizeKey(key), normalizeKeys(nestedValue)]),
+  );
 }
 
 function assignPair(entry: CatalogRecord, pair: string, lineNumber: number): void {

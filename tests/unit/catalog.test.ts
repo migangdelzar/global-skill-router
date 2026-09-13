@@ -55,4 +55,53 @@ skills:
 `),
     ).toThrow(/category/);
   });
+
+  it('rejects duplicate skill IDs', () => {
+    expect(() =>
+      parseCatalog(`
+skills:
+  - id: duplicate
+    category: primary
+    source: owner/repo
+    skill_path: skills/duplicate
+    use_when: [first]
+    activation: automatic
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: duplicate
+    category: primary
+    source: owner/repo
+    skill_path: skills/duplicate-again
+    use_when: [second]
+    activation: automatic
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+`),
+    ).toThrow(/duplicate.*id/i);
+  });
+
+  it('normalizes snake_case fields in JSON catalogs', () => {
+    const [entry] = parseCatalog(JSON.stringify({
+      skills: [{
+        id: 'json-skill',
+        category: 'primary',
+        source: 'owner/repo',
+        skill_path: 'skills/json-skill',
+        use_when: ['json catalog'],
+        activation: 'automatic',
+        conflicts_with: [],
+        requires: [],
+        release_policy: 'latest-stable-tag',
+      }],
+    }));
+
+    expect(entry).toMatchObject({
+      skillPath: 'skills/json-skill',
+      useWhen: ['json catalog'],
+      conflictsWith: [],
+      releasePolicy: 'latest-stable-tag',
+    });
+  });
 });

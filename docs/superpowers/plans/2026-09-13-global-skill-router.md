@@ -214,8 +214,6 @@ Expected: PASS.
 
 Committed as `feat: add catalog routing policy`.
 
-- [ ] **Step 5: Commit**
-
 ```bash
 git add catalog src/domain/catalog.ts src/services/skill-router.ts tests/unit/catalog.test.ts tests/unit/skill-router.test.ts
 git commit -m "feat: add catalog routing policy"

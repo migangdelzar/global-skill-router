@@ -1,13 +1,4 @@
 skills:
-  - id: rtk-cli-filter
-    category: tooling
-    source: rtk-ai/rtk
-    skill_path: .
-    use_when: [run tests, inspect git, build logs, shell-heavy coding task]
-    activation: automatic
-    conflicts_with: []
-    requires: [rtk]
-    release_policy: latest-stable-tag
   - id: emil-design-eng
     category: ui
     source: emilkowalski/skills

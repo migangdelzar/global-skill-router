@@ -29,6 +29,20 @@ type Role = 'primary' | 'adjunct' | 'reviewer';
 
 export function route(request: RouteRequest, skills: readonly SkillEntry[]): RouteResult {
   const rejected: Array<{ id: string; reason: string }> = [];
+  const explicitSkill = request.explicitSkillId === undefined
+    ? undefined
+    : skills.find((skill) => skill.id === request.explicitSkillId);
+
+  if (request.explicitSkillId !== undefined && explicitSkill === undefined) {
+    rejected.push({ id: request.explicitSkillId, reason: 'skill is not in the catalog' });
+    return {
+      primary: null,
+      adjuncts: Object.freeze([]),
+      rejected: Object.freeze(rejected),
+      tooling: selectTooling(request.task, skills),
+    };
+  }
+
   const candidates = skills
     .map((skill, order): Candidate | null => {
       const explicit = request.explicitSkillId === skill.id;
@@ -50,10 +64,6 @@ export function route(request: RouteRequest, skills: readonly SkillEntry[]): Rou
     .filter((candidate): candidate is Candidate => candidate !== null)
     .sort((left, right) => right.score - left.score || left.order - right.order);
 
-  if (request.explicitSkillId !== undefined && !skills.some((skill) => skill.id === request.explicitSkillId)) {
-    rejected.push({ id: request.explicitSkillId, reason: 'skill is not in the catalog' });
-  }
-
   let primary: SkillEntry | null = null;
   let adjunct: SkillEntry | null = null;
   let reviewer: SkillEntry | null = null;
@@ -65,7 +75,7 @@ export function route(request: RouteRequest, skills: readonly SkillEntry[]): Rou
       continue;
     }
 
-    const role = candidate.forced ? 'primary' : classifyRole(skill);
+    const role = classifyRole(skill);
     if (role === 'primary') {
       if (primary !== null) {
         rejected.push({ id: skill.id, reason: 'primary slot already selected' });
@@ -113,8 +123,14 @@ function matches(skill: SkillEntry, text: string): boolean {
 }
 
 function containsPhrase(text: string, phrase: string): boolean {
-  const normalizedPhrase = normalize(phrase);
-  return normalizedPhrase.length > 0 && normalize(text).includes(normalizedPhrase);
+  const textTokens = normalize(text).split(' ').filter(Boolean);
+  const phraseTokens = normalize(phrase).split(' ').filter(Boolean);
+  if (phraseTokens.length === 0 || phraseTokens.length > textTokens.length) return false;
+
+  return textTokens.some((_, index) =>
+    index + phraseTokens.length <= textTokens.length &&
+    phraseTokens.every((token, offset) => textTokens[index + offset] === token),
+  );
 }
 
 function normalize(value: string): string {
