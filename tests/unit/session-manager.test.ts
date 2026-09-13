@@ -29,6 +29,9 @@ describe('SessionManagerService', () => {
 
     expect(active).toBe('/cache/sessions/session-a/active');
     expect(destination).toContain('/cache/sessions/session-a/active/');
+    expect(fileSystem.calls.some(([method, from]) => method === 'copyTree' && from === `${artifact.objectPath}/${artifact.skillPath}`)).toBe(true);
+    expect(fileSystem.calls.some(([method, from]) => method === 'copyTree' && from === artifact.objectPath)).toBe(false);
+    expect(fileSystem.calls.filter(([method, path]) => method === 'mkdir' && typeof path === 'string' && path.includes('/sessions/')).every(([, , mode]) => Number(mode) === 0o700)).toBe(true);
   });
 
   it('rejects artifact metadata mismatches and preserves the shared artifact on cleanup', async () => {

@@ -93,8 +93,8 @@ export class FakeFileSystem implements FileSystem {
     this.files.set(path, new TextDecoder().decode(content));
   }
 
-  async mkdir(path: string): Promise<void> {
-    this.calls.push(['mkdir', path]);
+  async mkdir(path: string, mode?: number): Promise<void> {
+    this.calls.push(['mkdir', path, mode === undefined ? '' : String(mode)]);
     this.directories.add(path);
   }
 

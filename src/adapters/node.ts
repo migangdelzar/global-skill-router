@@ -62,7 +62,7 @@ export class NodeFileSystem implements FileSystem {
     await writeFile(path, content, 'utf8');
   }
 
-  async mkdir(path: string): Promise<void> { await mkdir(path, { recursive: true }); }
+  async mkdir(path: string, mode = 0o700): Promise<void> { await mkdir(path, { recursive: true, mode }); }
 
   async remove(path: string): Promise<void> { await rm(path, { recursive: true, force: true }); }
 

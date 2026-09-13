@@ -24,8 +24,8 @@ export class SessionManagerService {
     validateSessionId(sessionId);
     const root = sessionRoot(this.options.root, sessionId);
     const active = sessionActivePath(this.options.root, sessionId);
-    await this.options.fileSystem.mkdir(root);
-    await this.options.fileSystem.mkdir(active);
+    await this.options.fileSystem.mkdir(root, 0o700);
+    await this.options.fileSystem.mkdir(active, 0o700);
     const record: SessionRecord = {
       sessionId,
       startedAt: this.options.clock.now().toISOString(),
@@ -52,7 +52,7 @@ export class SessionManagerService {
     const active = await this.startIfMissing(sessionId);
     const name = `${encodeURIComponent(artifact.repo)}-${encodeURIComponent(artifact.skillPath)}`;
     const destination = `${active}/${name}`;
-    await this.options.fileSystem.copyTree(artifact.objectPath, destination);
+    await this.options.fileSystem.copyTree(`${artifact.objectPath}/${artifact.skillPath}`, destination);
     return destination;
   }
 
