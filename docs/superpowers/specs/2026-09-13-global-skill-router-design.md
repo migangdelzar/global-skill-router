@@ -71,6 +71,9 @@ Only the router and existing core rules are active by default. Optional skills l
 │       └── active/<skill-id>/
 └── skill-library/                    # dormant source trees only
 
+~/.local/bin/rtk                       # globally installed RTK release binary
+~/Library/Application Support/rtk/    # RTK config/state on macOS
+
 ~/.agents/skills/
 ├── skill-router/SKILL.md              # small active router
 └── superpowers/                       # existing active skill set
@@ -158,6 +161,25 @@ Rules:
 - If GitHub is unavailable, use the last verified release cache.
 - A newer release is recorded as an available update; it does not mutate an active session.
 - Prereleases require an explicit user request and a separate policy override.
+
+## Runtime Tooling: RTK
+
+RTK is a global runtime-tooling layer, not a skill. It compresses supported shell
+output before it reaches the agent and therefore must not be copied into a
+session skill directory or activated by task routing.
+
+- Manage RTK from the newest stable Release tag in `rtk-ai/rtk` only.
+- Select the release asset for the host OS and architecture; reject branches,
+  untagged archives, drafts, and prereleases.
+- Verify the asset checksum and the installed binary's reported version before
+  atomic replacement. Preserve the previous binary for rollback.
+- Install or update only after explicit confirmation, and never silently modify
+  `~/.codex/AGENTS.md` or global hooks/config. Show the proposed diff first.
+- Keep RTK's global config/state outside the per-session skill cache. Session
+  cleanup must never remove the RTK binary or its global config.
+- Treat compressed output as a lossy presentation layer: support passthrough or
+  command exclusions when full output is needed, and do not claim it reduces
+  actual model billing.
 
 ## Metadata Freshness
 
@@ -247,6 +269,8 @@ The router should expose these operations:
 | Corrupt download/checksum mismatch | Delete only the temporary object and fail closed. |
 | Abandoned session cache | Remove only after TTL expiry; never remove shared objects. |
 | Missing prerequisite | Report exact prerequisite and do not activate the skill. |
+| RTK asset unavailable for this host | Do not install; preserve the current binary and report the supported assets. |
+| RTK checksum/version verification fails | Reject the temporary download, preserve the current binary, and report the mismatch. |
 
 ## Security and Trust
 
@@ -282,7 +306,8 @@ The implementation must verify:
 - Installing all skills from any one pack.
 - Applying Apple design rules to every UI task by default.
 - Running Graphify or Understand-Anything automatically on every repository.
+- Treating RTK as a routed skill or deleting its global binary/config during session cleanup.
 
 ## Decision
 
-Implement the approved catalog-plus-cache router. Use the newest stable GitHub Release tag only, protect shared metadata/content refreshes with per-source single-flight locks, and delete only per-session activation state at session cleanup.
+Implement the approved catalog-plus-cache router plus a separately managed RTK runtime layer. Use the newest stable GitHub Release tag only for both, protect shared metadata/content refreshes with per-source single-flight locks, and delete only per-session activation state at session cleanup.

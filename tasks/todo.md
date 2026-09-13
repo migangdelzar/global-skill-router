@@ -7,6 +7,7 @@
 - [ ] Implement catalog and router behavior
 - [ ] Add tests for release-only resolution and cache stampede protection
 - [ ] Add tests for session activation and cleanup
+- [ ] Add RTK release-managed global tooling with rollback safeguards
 - [ ] Run verification: tests, typecheck/lint, and deterministic cache scenarios
 - [ ] Document install/update commands and operational limits
 
@@ -19,3 +20,4 @@
 - Release policy is latest stable GitHub Release tag only; no branch fallback.
 - Shared verified cache persists; per-session activation state is disposable.
 - Per-source locks, TTL jitter, stale-cache serving, and atomic publication prevent cache stampedes.
+- RTK is separate global tooling: release-tag only, checksum/version verified, atomic replacement, rollback-capable, never session-cached.

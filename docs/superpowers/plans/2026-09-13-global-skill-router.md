@@ -42,6 +42,8 @@ src/services/metadata-cache.ts       TTL, jitter, and single-flight metadata ref
 src/services/artifact-cache.ts       Download, checksum, and atomic publication
 src/services/session-manager.ts      Session activation and cleanup
 src/services/skill-router.ts         Task classification and route policy
+src/ports/tooling.ts                 Runtime-tool release protocol
+src/services/tool-release-manager.ts RTK asset install, verification, and rollback
 src/cli/main.ts                      CLI command composition root
 src/index.ts                         Public exports for tests and CLI
 bin/skill-router.mjs                 Built CLI launcher
@@ -53,6 +55,7 @@ tests/unit/*.test.ts                  Unit tests for every service
 tests/integration/*.test.ts           Real temporary-directory lifecycle tests
 docs/INSTALL.md                      Global setup and update behavior
 docs/USAGE.md                        Routing commands and examples
+docs/RTK.md                           Global RTK install, update, and rollback behavior
 ```
 
 ## 2. Task List
@@ -594,6 +597,48 @@ git add docs tasks/todo.md tests/integration/end-to-end.test.ts
 git commit -m "docs: document skill router operations"
 ```
 
+### Task 10: Add release-managed RTK runtime tooling
+
+**Files:**
+
+- Create: `src/ports/tooling.ts`
+- Create: `src/services/tool-release-manager.ts`
+- Create: `tests/unit/tool-release-manager.test.ts`
+- Create: `docs/RTK.md`
+- Modify: `src/ports/github.ts`, `src/index.ts`, `src/cli/main.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+Cover stable Release-tag selection, rejection of drafts/prereleases/branches/
+untagged artifacts, host asset selection, explicit-confirmation gating,
+checksum and binary-version verification, atomic replacement, preservation of
+the previous binary on failure, rollback, and the invariant that RTK never uses
+the per-session skill cache or silently edits `AGENTS.md`.
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npm test -- --run tests/unit/tool-release-manager.test.ts`
+
+- [ ] **Step 3: Implement the minimum release manager**
+
+Use the same allowlisted GitHub release resolver and lock protocol as skills.
+Download the exact stable RTK asset to a temporary path, verify checksum and
+reported version, then atomically replace the global binary while retaining a
+rollback path.
+
+- [ ] **Step 4: Refactor and document**
+
+Keep RTK outside skill activation/session cleanup. Document the explicit
+confirmation boundary and the fact that Codex integration changes require a
+reviewable diff.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src tests docs/RTK.md
+git commit -m "feat: add release-managed RTK tooling"
+```
+
 ## 3. Dependency Notes
 
 ```text
@@ -606,6 +651,7 @@ Task 1
   │                       └── Task 7: CLI
   │                             └── Task 8: global bootstrap
   │                                   └── Task 9: end-to-end verification
+  └── Task 10: RTK runtime tooling (after Tasks 3–5)
 ```
 
 Task 2 and Task 3 can be developed independently after Task 1, but all later tasks depend on their protocols and behavior. Task 4 must be complete before artifact download work so the shared cache cannot gain an unprotected refresh path.
@@ -618,6 +664,7 @@ Task 2 and Task 3 can be developed independently after Task 1, but all later tas
 - `~/.codex/skill-library/` is intentionally outside active discovery.
 - The router must not modify project `AGENTS.md`, source files, or user data files.
 - GitHub access is limited to release metadata, tag resolution, and explicitly confirmed tag archive downloads.
+- RTK is installed globally from a verified stable Release asset and is independent of session skill activation.
 
 ## 5. Definition of Done
 
@@ -629,6 +676,8 @@ Task 2 and Task 3 can be developed independently after Task 1, but all later tas
 - [ ] Concurrent sessions share one verified artifact.
 - [ ] Session activation is removed without deleting shared cache objects.
 - [ ] Dormant skills remain outside active discovery.
+- [ ] RTK uses only verified stable Release assets with platform selection, checksum/version checks, atomic replacement, and rollback.
+- [ ] RTK installation never silently modifies `AGENTS.md` or global hooks/config.
 - [ ] `npm test -- --run` passes with zero failures and zero skipped tests.
 - [ ] `npm run typecheck` passes.
 - [ ] `npm run build` passes.

@@ -1,1 +1,3 @@
 .tgrep/
+node_modules/
+dist/
