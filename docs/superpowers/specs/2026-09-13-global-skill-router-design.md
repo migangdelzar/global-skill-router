@@ -55,6 +55,21 @@ Only the router and existing core rules are active by default. Optional skills l
 9. Load referenced documentation and scripts only when the selected workflow reaches that step.
 10. If the selected skill is unavailable, report the reason and offer the approved install action.
 
+### Tooling Routing Policy
+
+Repository search and CLI-output reduction are separate concerns. The router
+always selects `tgrep` for repository search because the project instruction
+requires its indexed search behavior. RTK is an optional automatic tooling
+adjunct for CLI-heavy tasks such as running tests, inspecting Git state, or
+reading build logs. The router must not replace `tgrep` with `grep`, `rg`, or
+`rtk grep`, and RTK command rewriting must exclude `tgrep` so search results
+remain exact.
+
+RTK is skipped when the task requests exact raw command output or investigates
+command-output formatting. Routing may recommend an already-installed RTK
+integration, but install/update and hook/config changes remain explicit
+confirmed operations.
+
 ## Global File Layout
 
 ```text
@@ -139,6 +154,12 @@ Each entry records:
 - Karpathy and Ponytail: already covered by the user's global engineering rules.
 - Duplicate Caveman: already covered by the user's global response preference.
 
+### Tooling Adjuncts
+
+- `tgrep`: required repository-search command; not a downloadable skill.
+- `rtk-cli-filter`: automatic CLI-output optimization adjunct; compatible with
+  Caveman and `tgrep`, with `tgrep` excluded from RTK rewriting.
+
 ## Version Resolution
 
 The only acceptable install source is the newest stable GitHub Release tag.
@@ -164,9 +185,10 @@ Rules:
 
 ## Runtime Tooling: RTK
 
-RTK is a global runtime-tooling layer, not a skill. It compresses supported shell
-output before it reaches the agent and therefore must not be copied into a
-session skill directory or activated by task routing.
+RTK is a global runtime-tooling layer, not a session skill. It compresses
+supported shell output before it reaches the agent. The router can return an
+`rtk-cli-filter` tooling decision for matching tasks, but that decision never
+copies RTK into a session skill directory or installs it.
 
 - Manage RTK from the newest stable Release tag in `rtk-ai/rtk` only.
 - Select the release asset for the host OS and architecture; reject branches,
@@ -306,7 +328,7 @@ The implementation must verify:
 - Installing all skills from any one pack.
 - Applying Apple design rules to every UI task by default.
 - Running Graphify or Understand-Anything automatically on every repository.
-- Treating RTK as a routed skill or deleting its global binary/config during session cleanup.
+- Treating RTK as a session skill or deleting its global binary/config during session cleanup.
 
 ## Decision
 

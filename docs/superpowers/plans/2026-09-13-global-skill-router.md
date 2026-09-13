@@ -177,7 +177,7 @@ export interface RouteResult {
 export function route(request: RouteRequest, skills: readonly SkillEntry[]): RouteResult;
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover:
 
@@ -187,22 +187,32 @@ Cover:
 4. Conflicting workflow packs are rejected unless explicitly selected.
 5. At most one primary, one adjunct, and one reviewer are returned.
 6. Malformed catalog entries are rejected with the field name in the error.
+7. Repository-search routing always returns `tgrep` and excludes it from RTK rewriting.
+8. CLI-heavy tasks select the RTK tooling adjunct; exact raw-output requests disable it.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- --run tests/unit/catalog.test.ts tests/unit/skill-router.test.ts`
 
 Expected: FAIL because catalog parsing and routing are not implemented.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Implement the parser for the committed catalog and deterministic keyword matching. Apply priority in this order: explicit skill, project instructions, exact category/trigger match, then no optional skill.
 
-- [ ] **Step 4: Run tests to verify they pass**
+Keep tooling routing separate from the primary/adjunct skill slots: `tgrep` is a
+mandatory repository-search command policy, while `rtk-cli-filter` is an
+optional automatic CLI-output adjunct. Do not create a global `rg` symlink.
+
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- --run tests/unit/catalog.test.ts tests/unit/skill-router.test.ts && npm run typecheck`
 
 Expected: PASS.
+
+- [x] **Step 5: Commit**
+
+Committed as `feat: add catalog routing policy`.
 
 - [ ] **Step 5: Commit**
 
