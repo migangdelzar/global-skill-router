@@ -22,7 +22,9 @@ class StubGitHubClient implements GitHubClient {
 
   constructor(
     private readonly releases: unknown,
-    private readonly commitSha = '0123456789abcdef0123456789abcdef01234567',
+    private readonly resolvedTag: unknown = {
+      commitSha: '0123456789abcdef0123456789abcdef01234567',
+    },
   ) {}
 
   async listReleases(repo: string) {
@@ -32,7 +34,7 @@ class StubGitHubClient implements GitHubClient {
 
   async resolveTag(repo: string, tag: string) {
     this.calls.push(['resolveTag', repo, tag]);
-    return { commitSha: this.commitSha };
+    return this.resolvedTag as Awaited<ReturnType<GitHubClient['resolveTag']>>;
   }
 
   async downloadTagArchive(repo: string, tag: string) {
@@ -118,6 +120,32 @@ describe('ReleaseResolverService', () => {
 
     await expect(resolver.resolveLatestStable('owner/repo')).rejects.toBeInstanceOf(
       MalformedReleaseError,
+    );
+  });
+
+  it.each([
+    null,
+    {},
+    { commitSha: 123 },
+    { commitSha: 'main' },
+    { commitSha: '0123456789abcdef' },
+    { commitSha: '0123456789abcdef0123456789abcdef0123456g' },
+  ])('rejects an invalid resolved tag payload: %j', async (resolvedTag) => {
+    const github = new StubGitHubClient(
+      [
+        {
+          tagName: 'v1.0.0',
+          publishedAt: '2026-01-01T00:00:00.000Z',
+          draft: false,
+          prerelease: false,
+        },
+      ],
+      resolvedTag,
+    );
+    const resolver = new ReleaseResolverService(github, new FixedClock());
+
+    await expect(resolver.resolveLatestStable('owner/repo')).rejects.toThrowError(
+      /40-character hexadecimal commit SHA/,
     );
   });
 

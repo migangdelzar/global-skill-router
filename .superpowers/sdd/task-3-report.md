@@ -29,6 +29,15 @@ Complete.
 - `npm run typecheck` and `npm run build` — blocked by those same missing Task 2 modules/tests; no Task 3 source errors remain.
 - `git diff --check` — PASS.
 
+## Review Fix: Validate Resolved Commit SHA
+
+- Added regression coverage for null, missing, non-string, branch-name, short, and non-hex `resolveTag` payloads.
+- The resolver now validates the runtime payload before dereferencing it and accepts only a 40-character hexadecimal commit SHA.
+- Invalid payloads consistently throw `MalformedReleaseError` with an actionable validation message.
+- Red: the focused suite failed 6/11 new cases before the implementation because invalid payloads were dereferenced, accepted, or produced the wrong error.
+- Green: `npm test -- --run tests/unit/release-resolver.test.ts` — PASS, 11/11 tests.
+- Full verification: `npm test -- --run` — PASS, 31/31 tests; `npm run typecheck` — PASS; `npm run build` — PASS; `git diff --check` — PASS.
+
 ## Scope Notes
 
 - Existing PDF/JSON files were not modified.

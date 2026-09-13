@@ -29,12 +29,14 @@ export class ReleaseResolverService implements ReleaseResolver {
       throw new NoStableReleaseError(repo);
     }
 
-    const resolvedTag = await this.github.resolveTag(repo, selectedRelease.tagName);
-    if (
-      typeof resolvedTag.commitSha !== 'string' ||
-      resolvedTag.commitSha.trim().length === 0
-    ) {
-      throw new MalformedReleaseError('resolved tag has no commit SHA');
+    const resolvedTag: unknown = await this.github.resolveTag(
+      repo,
+      selectedRelease.tagName,
+    );
+    if (!this.isResolvedTag(resolvedTag)) {
+      throw new MalformedReleaseError(
+        'resolved tag must contain a 40-character hexadecimal commit SHA',
+      );
     }
 
     return {
@@ -69,6 +71,18 @@ export class ReleaseResolverService implements ReleaseResolver {
       !Number.isNaN(Date.parse(release.publishedAt)) &&
       typeof release.draft === 'boolean' &&
       typeof release.prerelease === 'boolean'
+    );
+  }
+
+  private isResolvedTag(
+    value: unknown,
+  ): value is { commitSha: string } {
+    if (typeof value !== 'object' || value === null) return false;
+
+    const resolvedTag = value as Record<string, unknown>;
+    return (
+      typeof resolvedTag.commitSha === 'string' &&
+      /^[0-9a-f]{40}$/i.test(resolvedTag.commitSha)
     );
   }
 }
