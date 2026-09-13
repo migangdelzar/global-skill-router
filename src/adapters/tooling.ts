@@ -50,6 +50,15 @@ export class GitHubToolReleaseClient implements ToolReleaseClient {
     if (!response.ok) throw new Error(`GitHub asset request failed: ${response.status}`);
     return new Uint8Array(await response.arrayBuffer());
   }
+
+  async resolveTag(repo: string, tag: string): Promise<{ commitSha: string }> {
+    const response = await fetch(`https://api.github.com/repos/${repo}/commits/${encodeURIComponent(tag)}`, {
+      headers: { accept: 'application/vnd.github+json', 'user-agent': 'global-skill-router' },
+    });
+    if (!response.ok) throw new Error(`GitHub tag resolution failed: ${response.status}`);
+    const value = await response.json() as Record<string, unknown>;
+    return { commitSha: typeof value.sha === 'string' ? value.sha : '' };
+  }
 }
 
 export class PathToolLocator {

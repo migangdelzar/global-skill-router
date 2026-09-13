@@ -12,10 +12,12 @@ export interface ToolRelease {
   draft: boolean;
   prerelease: boolean;
   assets: readonly ToolAsset[];
+  commitSha?: string;
 }
 
 export interface ToolReleaseClient {
   listReleases(repo: string): Promise<readonly ToolRelease[]>;
+  resolveTag(repo: string, tag: string): Promise<{ commitSha: string }>;
   downloadAsset(repo: string, tag: string, assetName: string): Promise<Uint8Array>;
 }
 
@@ -30,4 +32,5 @@ export interface ToolInstallResult {
   asset: string;
   path: string;
   backupPath: string | null;
+  commitSha: string;
 }

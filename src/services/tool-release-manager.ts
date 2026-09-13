@@ -39,17 +39,22 @@ export class ToolReleaseManager {
     if (asset === undefined) {
       throw new ToolInstallError(`no ${this.options.platform}/${this.options.architecture} asset for ${definition.id}`);
     }
+    if (asset.sha256 === undefined || !/^[0-9a-f]{64}$/i.test(asset.sha256)) {
+      throw new ToolInstallError(`checksum is required for ${asset.name}`);
+    }
     if (!confirm) return { preview: true, release, asset };
 
     const bytes = await this.options.client.downloadAsset(definition.repo, release.tag, asset.name);
-    if (asset.sha256 !== undefined) {
-      const digest = createHash('sha256').update(bytes).digest('hex');
-      if (digest !== asset.sha256.toLowerCase()) throw new ToolInstallError(`checksum mismatch for ${asset.name}`);
-    }
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    if (digest !== asset.sha256.toLowerCase()) throw new ToolInstallError(`checksum mismatch for ${asset.name}`);
 
     const temporaryPath = `${definition.binaryPath}.tmp-${Date.now()}`;
     const backupPath = `${definition.binaryPath}.previous`;
+    const metadataPath = `${definition.binaryPath}.json`;
+    const temporaryMetadataPath = `${metadataPath}.tmp-${Date.now()}`;
+    const backupMetadataPath = `${metadataPath}.previous`;
     let existingWasMoved = false;
+    let existingMetadataWasMoved = false;
     try {
       await this.options.assetInstaller.install(bytes, asset.name, temporaryPath);
       const version = await this.options.versionOf(temporaryPath);
@@ -61,10 +66,26 @@ export class ToolReleaseManager {
         await this.options.fileSystem.rename(definition.binaryPath, backupPath);
         existingWasMoved = true;
       }
+      const hasMetadata = await this.options.fileSystem.exists(metadataPath);
+      if (hasMetadata) {
+        await this.options.fileSystem.rename(metadataPath, backupMetadataPath);
+        existingMetadataWasMoved = true;
+      }
       await this.options.fileSystem.rename(temporaryPath, definition.binaryPath);
-      return { toolId: definition.id, repo: definition.repo, tag: release.tag, asset: asset.name, path: definition.binaryPath, backupPath: hasExisting ? backupPath : null };
+      await this.options.fileSystem.writeText(temporaryMetadataPath, JSON.stringify({
+        toolId: definition.id,
+        repo: definition.repo,
+        tag: release.tag,
+        commitSha: release.commitSha,
+        asset: asset.name,
+        sha256: asset.sha256.toLowerCase(),
+        path: definition.binaryPath,
+      }));
+      await this.options.fileSystem.rename(temporaryMetadataPath, metadataPath);
+      return { toolId: definition.id, repo: definition.repo, tag: release.tag, asset: asset.name, path: definition.binaryPath, backupPath: hasExisting ? backupPath : null, commitSha: release.commitSha };
     } catch (error) {
       await this.options.fileSystem.remove(temporaryPath);
+      await this.options.fileSystem.remove(temporaryMetadataPath);
       if (existingWasMoved) {
         try {
           if (!(await this.options.fileSystem.exists(definition.binaryPath))) {
@@ -74,17 +95,29 @@ export class ToolReleaseManager {
           // Preserve the original installation error. The backup remains available for manual recovery.
         }
       }
+      if (existingMetadataWasMoved) {
+        try {
+          if (!(await this.options.fileSystem.exists(metadataPath))) {
+            await this.options.fileSystem.rename(backupMetadataPath, metadataPath);
+          }
+        } catch {
+          // Preserve the original installation error. The metadata backup remains available for manual recovery.
+        }
+      }
       throw error;
     }
   }
 
-  private async latestStable(repo: string, requestedVersion?: string): Promise<ToolRelease> {
+  private async latestStable(repo: string, _requestedVersion?: string): Promise<ToolRelease & { commitSha: string }> {
     const releases = (await this.options.client.listReleases(repo))
       .filter((release) => !release.draft && !release.prerelease)
-      .filter((release) => requestedVersion === undefined || release.tag === requestedVersion || release.tag === `v${requestedVersion}`)
       .sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt));
     const release = releases[0];
     if (release === undefined) throw new ToolInstallError(`no stable release found for ${repo}`);
-    return release;
+    const resolved = await this.options.client.resolveTag(repo, release.tag);
+    if (typeof resolved.commitSha !== 'string' || !/^[0-9a-f]{40}$/i.test(resolved.commitSha)) {
+      throw new ToolInstallError(`release ${release.tag} does not resolve to a 40-character commit SHA`);
+    }
+    return { ...release, commitSha: resolved.commitSha };
   }
 }
