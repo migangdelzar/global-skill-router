@@ -365,7 +365,7 @@ export interface ArtifactCache {
 }
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover:
 
@@ -376,23 +376,23 @@ Cover:
 5. A missing `SKILL.md` fails and leaves no partial object.
 6. Concurrent object requests share one per-source lock.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- --run tests/unit/artifact-cache.test.ts`
 
 Expected: FAIL because artifact caching is not implemented.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Download the resolved tag archive, calculate SHA-256, extract to a unique temporary directory, validate `<skillPath>/SKILL.md`, write metadata, and atomically rename the completed object directory. Never overwrite an existing immutable object.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- --run tests/unit/artifact-cache.test.ts && npm run typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/services/artifact-cache.ts tests/unit/artifact-cache.test.ts

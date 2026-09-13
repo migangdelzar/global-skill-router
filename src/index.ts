@@ -2,6 +2,7 @@ export type { Clock } from './ports/clock.js';
 export type { FileSystem } from './ports/filesystem.js';
 export type { GitHubClient, GitHubRelease } from './ports/github.js';
 export type { LockLease, SourceLock } from './ports/lock.js';
+export type { ArchiveExtractor } from './ports/archive.js';
 export type { MetadataCache, MetadataRecord } from './domain/cache.js';
 export { metadataPathForRepo } from './domain/cache.js';
 export {
@@ -23,3 +24,9 @@ export type {
   RouteResult,
   RouteTooling,
 } from './services/skill-router.js';
+export {
+  ArtifactCacheService,
+  ArtifactValidationError,
+  artifactPath,
+} from './services/artifact-cache.js';
+export type { ArtifactCacheOptions, CachedArtifact } from './services/artifact-cache.js';

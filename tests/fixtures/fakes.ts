@@ -57,6 +57,22 @@ export class FakeFileSystem implements FileSystem {
       this.files.delete(from);
       this.files.set(to, content);
     }
+    if (this.directories.has(from)) {
+      this.directories.delete(from);
+      this.directories.add(to);
+      for (const directory of [...this.directories]) {
+        if (directory.startsWith(`${from}/`)) {
+          this.directories.delete(directory);
+          this.directories.add(`${to}${directory.slice(from.length)}`);
+        }
+      }
+      for (const [path, value] of [...this.files]) {
+        if (path.startsWith(`${from}/`)) {
+          this.files.delete(path);
+          this.files.set(`${to}${path.slice(from.length)}`, value);
+        }
+      }
+    }
   }
 
   async copyTree(from: string, to: string): Promise<void> {
