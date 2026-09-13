@@ -83,75 +83,97 @@ export class FileSystemSourceLock implements SourceLock {
     timeoutMs: number,
     sessionId = owner,
   ): Promise<LockLease> {
-    const lockDirectory = `${this.options.lockRoot}/${encodeURIComponent(key)}.lock`;
-    const token = this.newToken();
-    const tokenPath = `${lockDirectory}/${token}.lock`;
+    const claimsDirectory = `${this.options.lockRoot}/${encodeURIComponent(key)}.claims`;
+    await this.options.fileSystem.mkdir(claimsDirectory);
+    let claim = await this.createClaim(claimsDirectory, key, owner, sessionId);
+
+    while (true) {
+      const claims = await this.readClaims(claimsDirectory);
+      const now = this.options.clock.now().getTime();
+      let removedStaleClaim = false;
+
+      for (const candidate of claims) {
+        if (now - Date.parse(candidate.createdAt) >= timeoutMs) {
+          await this.options.fileSystem.removeFile(candidate.path);
+          removedStaleClaim = true;
+        }
+      }
+
+      if (removedStaleClaim) {
+        if (!claims.some((candidate) => candidate.path === claim.path)) {
+          claim = await this.createClaim(claimsDirectory, key, owner, sessionId);
+        }
+        continue;
+      }
+
+      const ownClaim = claims.find((candidate) => candidate.path === claim.path);
+      if (ownClaim === undefined) {
+        claim = await this.createClaim(claimsDirectory, key, owner, sessionId);
+        continue;
+      }
+
+      const winner = [...claims].sort((left, right) => left.path.localeCompare(right.path))[0];
+      if (winner?.path === claim.path) {
+        return {
+          release: async () => {
+            await this.options.fileSystem.removeFile(claim.path);
+          },
+        };
+      }
+
+      await this.sleep(this.waitDuration(winner, now, timeoutMs));
+    }
+  }
+
+  private async createClaim(
+    claimsDirectory: string,
+    key: string,
+    owner: string,
+    sessionId: string,
+  ): Promise<ClaimRecord> {
+    const token = this.newToken(owner);
+    const path = `${claimsDirectory}/${token}.claim`;
+    const createdAt = this.options.clock.now().toISOString();
     const content = JSON.stringify({
       key,
       owner,
       pid: this.options.processId ?? process.pid,
       sessionId,
-      createdAt: this.options.clock.now().toISOString(),
+      createdAt,
       token,
     } satisfies LockRecord);
-    await this.options.fileSystem.mkdir(this.options.lockRoot);
 
-    while (true) {
-      if (await this.options.fileSystem.createExclusiveDirectory(lockDirectory)) {
-        if (!(await this.tryCreate(tokenPath, content))) {
-          throw new Error(`Unable to create lock lease for ${key}`);
+    if (!(await this.options.fileSystem.createExclusive(path, content))) {
+      return this.createClaim(claimsDirectory, key, owner, sessionId);
+    }
+    return { path, createdAt };
+  }
+
+  private async readClaims(claimsDirectory: string): Promise<ClaimRecord[]> {
+    try {
+      const claims: ClaimRecord[] = [];
+      for (const entry of await this.options.fileSystem.list(claimsDirectory)) {
+        const path = `${claimsDirectory}/${entry}`;
+        try {
+          const value: unknown = JSON.parse(await this.options.fileSystem.readText(path));
+          if (isLockRecord(value)) claims.push({ path, createdAt: value.createdAt });
+        } catch {
+          // A concurrent stale cleanup may remove a claim after list().
         }
-        return {
-          release: async () => {
-            await this.options.fileSystem.removeFile(tokenPath);
-            await this.options.fileSystem.removeEmptyDirectory(lockDirectory);
-          },
-        };
       }
-
-      const existing = await this.readLock(lockDirectory);
-      const now = this.options.clock.now().getTime();
-      if (existing !== null && now - Date.parse(existing.createdAt) >= timeoutMs) {
-        const reclaimed = await this.options.fileSystem.removeFile(existing.path);
-        await this.options.fileSystem.removeEmptyDirectory(lockDirectory);
-        if (reclaimed) continue;
-      }
-
-      await this.sleep(this.waitDuration(existing, now, timeoutMs));
-    }
-  }
-
-  private async tryCreate(path: string, content: string): Promise<boolean> {
-    try {
-      return await this.options.fileSystem.createExclusive(path, content);
-    } catch (error) {
-      if ((error as { code?: string }).code === 'EEXIST') return false;
-      throw error;
-    }
-  }
-
-  private async readLock(
-    lockDirectory: string,
-  ): Promise<{ path: string; createdAt: string } | null> {
-    try {
-      for (const entry of await this.options.fileSystem.list(lockDirectory)) {
-        const path = `${lockDirectory}/${entry}`;
-        const value: unknown = JSON.parse(await this.options.fileSystem.readText(path));
-        if (isLockRecord(value)) return { path, createdAt: value.createdAt };
-      }
-      return null;
+      return claims;
     } catch {
-      return null;
+      return [];
     }
   }
 
   private waitDuration(
-    existing: { createdAt: string } | null,
+    existing: ClaimRecord | undefined,
     now: number,
     timeoutMs: number,
   ): number {
     const pollIntervalMs = this.options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-    if (existing === null) return pollIntervalMs;
+    if (existing === undefined) return pollIntervalMs;
 
     const age = Math.max(0, now - Date.parse(existing.createdAt));
     const remaining = Math.max(1, timeoutMs - age);
@@ -166,10 +188,15 @@ export class FileSystemSourceLock implements SourceLock {
     await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
   }
 
-  private newToken(): string {
+  private newToken(owner: string): string {
     this.tokenSequence += 1;
-    return `${this.options.processId ?? process.pid}-${this.tokenSequence}-${randomUUID()}`;
+    return `${encodeURIComponent(owner)}-${this.options.processId ?? process.pid}-${this.tokenSequence}-${randomUUID()}`;
   }
+}
+
+interface ClaimRecord {
+  path: string;
+  createdAt: string;
 }
 
 function isLockRecord(value: unknown): value is LockRecord {

@@ -64,13 +64,6 @@ export class FakeFileSystem implements FileSystem {
     return true;
   }
 
-  async createExclusiveDirectory(path: string): Promise<boolean> {
-    this.calls.push(['createExclusiveDirectory', path]);
-    if (this.directories.has(path) || this.files.has(path)) return false;
-    this.directories.add(path);
-    return true;
-  }
-
   async removeEmptyDirectory(path: string): Promise<boolean> {
     this.calls.push(['removeEmptyDirectory', path]);
     if (!this.directories.has(path)) return false;

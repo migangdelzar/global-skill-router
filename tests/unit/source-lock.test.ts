@@ -15,6 +15,30 @@ class ManualClock implements Clock {
   }
 }
 
+class DelayedClaimFileSystem extends FakeFileSystem {
+  private claimCount = 0;
+  private claimCreatedResolver: (() => void) | undefined;
+  private claimCreationRelease: (() => void) | undefined;
+  readonly claimCreated = new Promise<void>((resolve) => {
+    this.claimCreatedResolver = resolve;
+  });
+
+  async createExclusive(path: string, content: string): Promise<boolean> {
+    const created = await super.createExclusive(path, content);
+    if (created && (path.includes('.claims/') || path.includes('.lock/')) && this.claimCount++ === 0) {
+      this.claimCreatedResolver?.();
+      await new Promise<void>((resolve) => {
+        this.claimCreationRelease = resolve;
+      });
+    }
+    return created;
+  }
+
+  releaseClaimCreation(): void {
+    this.claimCreationRelease?.();
+  }
+}
+
 describe('FileSystemSourceLock', () => {
   function createLock(fileSystem: FakeFileSystem, clock: ManualClock) {
     return new FileSystemSourceLock({
@@ -101,6 +125,36 @@ describe('FileSystemSourceLock', () => {
 
     await replacement.release();
     await expect(blocked).resolves.toBeDefined();
+  });
+
+  it('keeps a delayed claim publication safe while another owner contends', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new DelayedClaimFileSystem();
+    const lock = createLock(fileSystem, clock);
+
+    const firstPromise = lock.acquire('github:owner/repo', 'owner-a', 1_000, 'session-a');
+    await fileSystem.claimCreated;
+
+    let secondAcquired = false;
+    const secondPromise = lock
+      .acquire('github:owner/repo', 'owner-b', 1_000, 'session-b')
+      .then((lease) => {
+        secondAcquired = true;
+        return lease;
+      });
+
+    await Promise.resolve();
+    expect(secondAcquired).toBe(false);
+    expect(fileSystem.calls.some(([method]) => method === 'createExclusiveDirectory')).toBe(false);
+
+    fileSystem.releaseClaimCreation();
+    const first = await firstPromise;
+    await first.release();
+
+    const second = await secondPromise;
+    await second.release();
+
+    expect(fileSystem.calls.some(([method]) => method === 'createExclusiveDirectory')).toBe(false);
   });
 
   it('keeps independent repositories independent', async () => {

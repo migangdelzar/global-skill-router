@@ -27,16 +27,6 @@ export class NodeFileSystem implements FileSystem {
     }
   }
 
-  async createExclusiveDirectory(path: string): Promise<boolean> {
-    try {
-      await mkdir(path);
-      return true;
-    } catch (error) {
-      if ((error as { code?: string }).code === 'EEXIST') return false;
-      throw error;
-    }
-  }
-
   async removeFile(path: string): Promise<boolean> {
     try {
       await unlink(path);
