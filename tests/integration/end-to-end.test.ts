@@ -154,4 +154,38 @@ skills:
     await expect(fileSystem.exists('/cache/sessions/session-check/active')).resolves.toBe(false);
     await expect(fileSystem.exists('/cache/objects/owner%2Frepo-skills%2Fdemo-0123456789abcdef0123456789abcdef01234567')).resolves.toBe(false);
   });
+
+  it('previews a skill with complete release/actions and performs no writes or downloads', async () => {
+    const fileSystem = new FakeFileSystem();
+    const clock = new FakeClock();
+    const home = await mkdtemp(join(tmpdir(), 'skill-router-preview-'));
+    const catalogPath = join(home, 'catalog.yaml');
+    await writeFile(catalogPath, `
+skills:
+  - id: taste
+    category: ui-research
+    source: senlindesign/taste-skill
+    skill_path: .
+    use_when: [design reference]
+    activation: explicit
+    conflicts_with: []
+    requires: [playwright]
+    release_policy: latest-stable-tag
+`, 'utf8');
+    const github = new DiskGitHub();
+
+    const result = await runCliFromDisk(['install', 'taste', '--session', 'preview-session'], catalogPath, {
+      cacheRoot: '/cache', fileSystem, clock, github,
+    });
+
+    expect(result.code).toBe(2);
+    expect(result.output).toContain('release tag: v1.0.0');
+    expect(result.output).toContain('immutable commit SHA: 0123456789abcdef0123456789abcdef01234567');
+    expect(result.output).toContain('checksum: SHA-256 computed');
+    expect(result.output).toContain('prerequisites: GitHub network access, playwright');
+    expect(result.output).toContain('GET archive senlindesign/taste-skill@v1.0.0');
+    expect(result.output).toContain('--confirm');
+    expect(github.calls).toEqual(['listReleases:senlindesign/taste-skill', 'resolveTag:senlindesign/taste-skill:v1.0.0']);
+    expect(fileSystem.calls.some(([method]) => ['writeText', 'writeBytes', 'mkdir', 'rename', 'copyFile', 'copyTree'].includes(method))).toBe(false);
+  });
 });

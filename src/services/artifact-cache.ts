@@ -127,7 +127,7 @@ function validateSkillPath(skillPath: string): void {
   if (
     skillPath.length === 0 ||
     skillPath.startsWith('/') ||
-    skillPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..')
+    (skillPath !== '.' && skillPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..'))
   ) {
     throw new ArtifactValidationError(`unsafe skill path ${skillPath}`);
   }

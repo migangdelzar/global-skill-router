@@ -31,6 +31,27 @@ class FakeLock implements SourceLock {
 }
 
 describe('ArtifactCacheService', () => {
+  it('accepts a root skill path and validates the repository root SKILL.md', async () => {
+    const fileSystem = new FakeFileSystem();
+    const extractor = new FakeArchiveExtractor();
+    let checkedPath: string | undefined;
+
+    const result = await new ArtifactCacheService({
+      cacheRoot: '/cache',
+      fileSystem,
+      archiveExtractor: extractor,
+      sourceLock: new FakeLock(),
+      download: async () => new Uint8Array([1, 2, 3]),
+      skillExists: (root, skillPath) => {
+        checkedPath = `${root}/${skillPath}/SKILL.md`;
+        return true;
+      },
+    }).ensure(release, '.');
+
+    expect(result.skillPath).toBe('.');
+    expect(checkedPath).toBe(`${result.objectPath}.tmp-0/./SKILL.md`);
+  });
+
   it('downloads the exact tag and publishes an artifact after skill validation', async () => {
     const fileSystem = new FakeFileSystem();
     const extractor = new FakeArchiveExtractor();

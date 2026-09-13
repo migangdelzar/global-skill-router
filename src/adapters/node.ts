@@ -71,6 +71,8 @@ export class NodeFileSystem implements FileSystem {
     await rename(from, to);
   }
 
+  async copyFile(from: string, to: string): Promise<void> { await cp(from, to); }
+
   async copyTree(from: string, to: string): Promise<void> { await cp(from, to, { recursive: true }); }
 }
 

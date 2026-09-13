@@ -59,12 +59,21 @@ describe('skill-router CLI', () => {
     let called = false;
     const result = await runCli(['install', 'rtk-cli-filter'], {
       catalog,
+      previewInstall: async () => ({
+        kind: 'skill', skillId: 'rtk-cli-filter', source: 'rtk-ai/rtk', tag: 'v1.2.3',
+        commitSha: 'a'.repeat(40), checksum: 'sha256 computed after archive download',
+        asset: 'GitHub tarball rtk-ai/rtk@v1.2.3', prerequisites: ['rtk'],
+        actions: ['GET release metadata', 'GET tag ref', 'GET archive', 'write cache', 'activate session'],
+      }),
       install: async () => {
         called = true;
       },
     });
 
     expect(result.code).toBe(2);
+    expect(result.output).toContain('immutable commit SHA');
+    expect(result.output).toContain('checksum');
+    expect(result.output).toContain('GET archive');
     expect(result.output).toContain('--confirm');
     expect(called).toBe(false);
   });
@@ -83,6 +92,11 @@ describe('skill-router CLI', () => {
     let called = false;
     const result = await runCli(['install-tool', 'tgrep'], {
       catalog,
+      previewInstallTool: async () => ({
+        kind: 'tool', toolId: 'tgrep', repo: 'microsoft/tgrep', tag: 'v1.0.6',
+        commitSha: 'a'.repeat(40), asset: 'tgrep.tar.gz', checksum: 'b'.repeat(64),
+        prerequisites: ['macos/arm64'], actions: ['GET release metadata', 'GET tag ref', 'GET asset', 'replace binary'],
+      }),
       installTool: async () => {
         called = true;
         return { preview: true };
@@ -90,6 +104,9 @@ describe('skill-router CLI', () => {
     });
 
     expect(result.code).toBe(2);
+    expect(result.output).toContain('immutable commit SHA');
+    expect(result.output).toContain('checksum');
+    expect(result.output).toContain('GET asset');
     expect(result.output).toContain('--confirm');
     expect(called).toBe(false);
   });

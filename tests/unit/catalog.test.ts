@@ -26,6 +26,14 @@ describe('catalog parser', () => {
     });
   });
 
+  it.each(['taste', 'impeccable', 'ui-ux-pro-max', 'graphify', 'understand-anything'])
+    ('keeps the approved root skill path for %s', async (skillId) => {
+      const source = await readFile(resolve(process.cwd(), 'catalog/catalog.yaml'), 'utf8');
+      const skill = parseCatalog(source).find((entry) => entry.id === skillId);
+
+      expect(skill?.skillPath).toBe('.');
+    });
+
   it('rejects a malformed entry and names the invalid field', () => {
     expect(() =>
       parseCatalog(`

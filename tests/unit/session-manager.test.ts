@@ -18,6 +18,33 @@ const artifact: CachedArtifact = {
 };
 
 describe('SessionManagerService', () => {
+  it('activates a root skill by copying only its SKILL.md file', async () => {
+    const fileSystem = new FakeFileSystem();
+    const rootArtifact: CachedArtifact = {
+      ...artifact,
+      skillPath: '.',
+      objectPath: artifactPath('/cache', {
+        repo: artifact.repo,
+        tag: artifact.tag,
+        commitSha: artifact.commitSha,
+        resolvedAt: '',
+      }, '.'),
+    };
+    await fileSystem.mkdir(rootArtifact.objectPath);
+    await fileSystem.writeText(`${rootArtifact.objectPath}.json`, JSON.stringify(rootArtifact));
+    await fileSystem.writeText(`${rootArtifact.objectPath}/SKILL.md`, 'selected');
+    await fileSystem.writeText(`${rootArtifact.objectPath}/README.md`, 'dormant repository file');
+    const manager = new SessionManagerService({
+      root: '/cache', fileSystem, clock: new FakeClock(), abandonedTtlMs: 60_000,
+    });
+
+    const destination = await manager.activate('session-root', rootArtifact);
+
+    expect(fileSystem.calls.some(([method, from, to]) =>
+      method === 'copyFile' && from === `${rootArtifact.objectPath}/SKILL.md` && to === `${destination}/SKILL.md`)).toBe(true);
+    expect(fileSystem.calls.some(([method]) => method === 'copyTree')).toBe(false);
+  });
+
   it('creates a session active directory and activates a verified shared artifact', async () => {
     const fileSystem = new FakeFileSystem();
     await fileSystem.mkdir(artifact.objectPath);

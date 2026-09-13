@@ -137,6 +137,12 @@ export class FakeFileSystem implements FileSystem {
       }
     }
   }
+
+  async copyFile(from: string, to: string): Promise<void> {
+    this.calls.push(['copyFile', from, to]);
+    const content = this.files.get(from);
+    if (content !== undefined) this.files.set(to, content);
+  }
 }
 
 export class FakeGitHubClient implements GitHubClient {

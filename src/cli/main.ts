@@ -15,7 +15,7 @@ import { parseCatalog, type SkillEntry } from '../domain/catalog.js';
 import { route } from '../services/skill-router.js';
 import { ToolReleaseManager, type ToolDefinition } from '../services/tool-release-manager.js';
 import { ToolingRegistry, type ManagedToolId } from '../services/tooling-registry.js';
-import { ArtifactCacheService } from '../services/artifact-cache.js';
+import { ArtifactCacheService, artifactPath } from '../services/artifact-cache.js';
 import { MetadataCacheService } from '../services/metadata-cache.js';
 import { FileSystemSourceLock } from '../services/source-lock.js';
 import { SessionManagerService } from '../services/session-manager.js';
@@ -35,11 +35,37 @@ export interface CliDependencies {
   catalog: readonly SkillEntry[];
   checkUpdates?: (sessionId: string) => Promise<readonly SkillUpdate[]>;
   activate?: (skill: SkillEntry, sessionId: string) => Promise<string>;
+  previewInstall?: (skill: SkillEntry, sessionId: string) => Promise<SkillInstallPreview>;
   install?: (skill: SkillEntry) => Promise<void>;
   update?: (skill: SkillEntry) => Promise<void>;
   clean?: (sessionId?: string) => Promise<void>;
   tooling?: ToolingRegistry;
+  previewInstallTool?: (toolId: ManagedToolId) => Promise<ToolInstallPreview>;
   installTool?: (toolId: ManagedToolId, confirm: boolean) => Promise<unknown>;
+}
+
+export interface SkillInstallPreview {
+  kind: 'skill';
+  skillId: string;
+  source: string;
+  tag: string;
+  commitSha: string;
+  checksum: string;
+  asset: string;
+  prerequisites: readonly string[];
+  actions: readonly string[];
+}
+
+export interface ToolInstallPreview {
+  kind: 'tool';
+  toolId: ManagedToolId;
+  repo: string;
+  tag: string;
+  commitSha: string;
+  asset: string;
+  checksum: string;
+  prerequisites: readonly string[];
+  actions: readonly string[];
 }
 
 export interface SkillUpdate {
@@ -196,6 +222,55 @@ export async function runCliFromDisk(
     if (artifact === null) throw new Error(`skill ${skill.id} is not installed; run install with --confirm`);
     return sessions.activate(sessionId, artifact);
   };
+  const previewInstall = async (skill: SkillEntry, sessionId: string): Promise<SkillInstallPreview> => {
+    const release = await resolver.resolveLatestStable(skill.source);
+    const objectPath = artifactPath(cacheRoot, release, skill.skillPath);
+    const activePath = `${cacheRoot}/sessions/${sessionId}/active/${encodeURIComponent(skill.source)}-${encodeURIComponent(skill.skillPath)}`;
+    return {
+      kind: 'skill',
+      skillId: skill.id,
+      source: skill.source,
+      tag: release.tag,
+      commitSha: release.commitSha,
+      checksum: 'SHA-256 computed and recorded after the confirmed archive download',
+      asset: `GitHub tarball ${skill.source}@${release.tag}`,
+      prerequisites: ['GitHub network access', ...skill.requires],
+      actions: [
+        `GET release metadata for ${skill.source}`,
+        `GET immutable tag ref refs/tags/${release.tag}`,
+        `GET archive ${skill.source}@${release.tag}`,
+        `create temporary cache object near ${objectPath}`,
+        `extract and validate ${skill.skillPath === '.' ? 'SKILL.md' : `${skill.skillPath}/SKILL.md`}`,
+        `write and atomically publish ${objectPath}.json and ${objectPath}`,
+        `create session directory ${cacheRoot}/sessions/${sessionId}/active`,
+        `copy selected skill into ${activePath}`,
+      ],
+    };
+  };
+  const previewInstallTool = async (toolId: ManagedToolId): Promise<ToolInstallPreview> => {
+    const definition = TOOL_DEFINITIONS[toolId];
+    const target = currentToolTarget();
+    const result = await releaseManager.install(definition, false);
+    if (!('preview' in result)) throw new Error(`unable to preview ${toolId}`);
+    if (result.release.commitSha === undefined) throw new Error(`release ${result.release.tag} has no commit SHA`);
+    return {
+      kind: 'tool',
+      toolId,
+      repo: definition.repo,
+      tag: result.release.tag,
+      commitSha: result.release.commitSha,
+      asset: result.asset.name,
+      checksum: result.asset.sha256 ?? 'missing (install rejected)',
+      prerequisites: [`${target.platform}/${target.architecture}`, 'GitHub network access'],
+      actions: [
+        `GET release metadata for ${definition.repo}`,
+        `GET immutable tag ref refs/tags/${result.release.tag}`,
+        `GET verified asset ${result.asset.name}`,
+        `install and exact-check ${definition.binaryPath}.tmp-*`,
+        `atomically replace ${definition.binaryPath} and its metadata`,
+      ],
+    };
+  };
   return runCli(args, {
     catalog,
     checkUpdates: async (sessionId) => {
@@ -217,7 +292,9 @@ export async function runCliFromDisk(
       });
     },
     activate: activateCached,
+    previewInstall,
     tooling: new ToolingRegistry(new PathToolLocator()),
+    previewInstallTool,
     installTool: (toolId, confirm) => releaseManager.install(TOOL_DEFINITIONS[toolId], confirm),
     install: activate,
     update: activate,
@@ -252,7 +329,13 @@ async function installTool(
   const toolId = args.find((arg): arg is ManagedToolId => arg === 'tgrep' || arg === 'rtk');
   if (toolId === undefined) return { code: 1, output: `Unknown tool: ${args[0] ?? ''}` };
   if (!args.includes('--confirm')) {
-    return { code: 2, output: `${command} ${toolId}; rerun with --confirm to write` };
+    if (dependencies.previewInstallTool === undefined) return { code: 2, output: `${command} is unavailable in this composition` };
+    try {
+      const preview = await dependencies.previewInstallTool(toolId);
+      return { code: 2, output: formatPreview(`${command} ${toolId}`, preview) };
+    } catch (error) {
+      return { code: 2, output: `Unable to preview ${toolId}: ${error instanceof Error ? error.message : String(error)}` };
+    }
   }
   if (dependencies.installTool === undefined) return { code: 2, output: `${command} is unavailable in this composition` };
   const result = await dependencies.installTool(toolId, true) as { tag?: string; path?: string };
@@ -286,13 +369,30 @@ async function installOrUpdate(
   const skill = dependencies.catalog.find((entry) => entry.id === args[0]);
   if (skill === undefined) return { code: 1, output: `Unknown skill: ${args[0] ?? ''}` };
   if (!args.includes('--confirm')) {
-    return {
-      code: 2,
-      output: `${command} ${skill.id} from ${skill.source}; rerun with --confirm to write`,
-    };
+    if (dependencies.previewInstall === undefined) return { code: 2, output: `${command} is unavailable in this composition` };
+    try {
+      const preview = await dependencies.previewInstall(skill, sessionIdFromArgs(args));
+      return { code: 2, output: formatPreview(`${command} ${skill.id}`, preview) };
+    } catch (error) {
+      return { code: 2, output: `Unable to preview ${skill.id}: ${error instanceof Error ? error.message : String(error)}` };
+    }
   }
   const operation = command === 'install' ? dependencies.install : dependencies.update;
   if (operation === undefined) return { code: 2, output: `${command} is unavailable in this composition` };
   await operation(skill);
   return { code: 0, output: `${command} complete: ${skill.id}` };
+}
+
+function formatPreview(label: string, preview: SkillInstallPreview | ToolInstallPreview): string {
+  return [
+    `${label} preview (no download/write/activation performed)`,
+    `release tag: ${preview.tag}`,
+    `immutable commit SHA: ${preview.commitSha}`,
+    `asset: ${preview.asset}`,
+    `checksum: ${preview.checksum}`,
+    `prerequisites: ${preview.prerequisites.join(', ') || 'none'}`,
+    'exact actions:',
+    ...preview.actions.map((action) => `- ${action}`),
+    `confirm boundary: rerun with --confirm to execute ${preview.actions.length} actions`,
+  ].join('\n');
 }

@@ -67,7 +67,11 @@ export class SessionManagerService {
     const active = await this.startIfMissing(sessionId);
     const name = `${encodeURIComponent(artifact.repo)}-${encodeURIComponent(artifact.skillPath)}`;
     const destination = `${active}/${name}`;
-    await this.options.fileSystem.copyTree(`${expectedObjectPath}/${artifact.skillPath}`, destination);
+    if (artifact.skillPath === '.') {
+      await this.options.fileSystem.copyFile(`${expectedObjectPath}/SKILL.md`, `${destination}/SKILL.md`);
+    } else {
+      await this.options.fileSystem.copyTree(`${expectedObjectPath}/${artifact.skillPath}`, destination);
+    }
     return destination;
   }
 
@@ -115,7 +119,7 @@ function validateSkillPath(skillPath: string): void {
     skillPath.startsWith('/') ||
     /^[A-Za-z]:[\\/]/.test(skillPath) ||
     skillPath.includes('\\') ||
-    skillPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..')
+    (skillPath !== '.' && skillPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..'))
   ) {
     throw new SessionIntegrityError(`unsafe skill path ${skillPath}`);
   }
