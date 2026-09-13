@@ -4,8 +4,8 @@ import {
   metadataPathForRepo,
   type MetadataRecord,
 } from '../../src/domain/cache.js';
-import { MetadataCacheService } from '../../src/services/metadata-cache.js';
-import { InMemorySourceLock } from '../../src/services/source-lock.js';
+import { MetadataCacheService, MetadataRefreshError } from '../../src/services/metadata-cache.js';
+import { FileSystemSourceLock } from '../../src/services/source-lock.js';
 import type { Clock } from '../../src/ports/clock.js';
 import { FakeFileSystem } from '../fixtures/fakes.js';
 
@@ -53,7 +53,12 @@ function createCache(clock: Clock, fileSystem: FakeFileSystem, resolver: StubRel
     clock,
     fileSystem,
     resolver,
-    sourceLock: new InMemorySourceLock(clock),
+    sourceLock: new FileSystemSourceLock({
+      fileSystem,
+      clock,
+      lockRoot: '/cache/locks',
+      pollIntervalMs: 1,
+    }),
     lockTimeoutMs: 1_000,
   });
 }
@@ -177,6 +182,56 @@ describe('MetadataCacheService', () => {
 
     await expect(createCache(clock, fileSystem, resolver).getLatest('owner/repo', 'session-a'))
       .resolves.toEqual(record);
+  });
+
+  it('does not retry a failed refresh for the same session during the negative-cache window', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new FakeFileSystem();
+    const resolver = new StubReleaseResolver();
+    resolver.error = new Error('GitHub unavailable');
+    const cache = createCache(clock, fileSystem, resolver);
+
+    await expect(cache.getLatest('owner/repo', 'session-a')).rejects.toThrow(MetadataRefreshError);
+    await expect(cache.getLatest('owner/repo', 'session-a')).rejects.toThrow(MetadataRefreshError);
+    await expect(cache.getLatest('owner/repo', 'session-b')).rejects.toThrow(MetadataRefreshError);
+
+    expect(resolver.calls).toEqual(['owner/repo', 'owner/repo']);
+  });
+
+  it('returns stale metadata from the negative cache without retrying GitHub', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new FakeFileSystem();
+    const resolver = new StubReleaseResolver();
+    resolver.error = new Error('GitHub unavailable');
+    const record = recordFor('owner/repo', '2025-12-31T00:00:00.000Z');
+    await fileSystem.mkdir('/cache/metadata');
+    await fileSystem.writeText(metadataPathForRepo('/cache', 'owner/repo'), JSON.stringify(record));
+    const cache = createCache(clock, fileSystem, resolver);
+
+    await expect(cache.getLatest('owner/repo', 'session-a')).resolves.toEqual(record);
+    await expect(cache.getLatest('owner/repo', 'session-a')).resolves.toEqual(record);
+
+    expect(resolver.calls).toEqual(['owner/repo']);
+  });
+
+  it('rejects metadata stored at the requested path when its repo does not match', async () => {
+    const clock = new ManualClock();
+    const fileSystem = new FakeFileSystem();
+    const resolver = new StubReleaseResolver();
+    const wrongRepoRecord = recordFor('other/repo', '2026-01-02T00:00:00.000Z');
+    await fileSystem.mkdir('/cache/metadata');
+    await fileSystem.writeText(
+      metadataPathForRepo('/cache', 'owner/repo'),
+      JSON.stringify(wrongRepoRecord),
+    );
+
+    const result = await createCache(clock, fileSystem, resolver).getLatest(
+      'owner/repo',
+      'session-a',
+    );
+
+    expect(result.repo).toBe('owner/repo');
+    expect(resolver.calls).toEqual(['owner/repo']);
   });
 
   it('throws an actionable error when the first refresh fails', async () => {

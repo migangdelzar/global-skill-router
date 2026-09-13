@@ -11,6 +11,7 @@ import type { SourceLock } from '../ports/lock.js';
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const MAX_JITTER_MS = 60 * 60 * 1_000;
+const NEGATIVE_CACHE_MS = 60 * 1_000;
 
 export interface MetadataCacheOptions {
   cacheRoot: string;
@@ -34,12 +35,19 @@ export class MetadataRefreshError extends Error {
 
 export class MetadataCacheService implements MetadataCache {
   private temporaryFileSequence = 0;
+  private readonly negativeCache = new Map<string, number>();
 
   constructor(private readonly options: MetadataCacheOptions) {}
 
   async getLatest(repo: string, sessionId: string): Promise<MetadataRecord> {
     const current = await this.read(repo);
     if (current !== null && this.isFresh(current)) return current;
+    const negativeCacheKey = `${repo}:${sessionId}`;
+    const failedAt = this.negativeCache.get(negativeCacheKey);
+    if (failedAt !== undefined && this.options.clock.now().getTime() - failedAt < NEGATIVE_CACHE_MS) {
+      if (current !== null) return current;
+      throw new MetadataRefreshError(repo, new Error('negative cache window is active'));
+    }
 
     const lease = await this.options.sourceLock.acquire(
       `metadata:${repo}`,
@@ -66,6 +74,7 @@ export class MetadataCacheService implements MetadataCache {
         await this.write(repo, record, sessionId);
         return record;
       } catch (error) {
+        this.negativeCache.set(negativeCacheKey, this.options.clock.now().getTime());
         if (rechecked !== null) return rechecked;
         throw new MetadataRefreshError(repo, error);
       }
@@ -80,7 +89,7 @@ export class MetadataCacheService implements MetadataCache {
 
     try {
       const value: unknown = JSON.parse(await this.options.fileSystem.readText(path));
-      return isMetadataRecord(value) ? value : null;
+      return isMetadataRecord(value) && value.repo === repo ? value : null;
     } catch {
       return null;
     }
