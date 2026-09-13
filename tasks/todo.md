@@ -8,6 +8,7 @@
 - [x] Add tests for release-only resolution and cache stampede protection
 - [x] Add tests for session activation and cleanup
 - [x] Add verified artifact caching with atomic publication
+- [x] Add CLI routing commands and native filesystem/archive adapters
 - [ ] Add RTK release-managed global tooling with rollback safeguards
 - [ ] Run verification: tests, typecheck/lint, and deterministic cache scenarios
 - [ ] Document install/update commands and operational limits

@@ -474,7 +474,7 @@ skill-router update <skill-id> --confirm --session <id>
 skill-router clean [--session <id>]
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover:
 
@@ -486,23 +486,23 @@ Cover:
 6. `install --confirm` downloads and activates the stable tag.
 7. `clean` removes only session data.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- --run tests/integration/cli.test.ts`
 
 Expected: FAIL because the CLI is not implemented.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Wire concrete adapters only in `src/cli/main.ts`. Keep services dependent on protocols. Use explicit confirmation for downloads and updates.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- --run tests/integration/cli.test.ts && npm run build`
 
 Expected: PASS and `dist/` contains the runnable CLI.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/cli bin tests/integration/cli.test.ts
