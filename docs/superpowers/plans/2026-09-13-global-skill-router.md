@@ -518,7 +518,7 @@ git commit -m "feat: add skill router CLI"
 - Modify: `catalog/catalog.yaml`
 - Test: `tests/integration/bootstrap-global.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover:
 
@@ -528,23 +528,23 @@ Cover:
 4. Re-running bootstrap is idempotent.
 5. `SKILL.md` instructs the agent to route before loading optional skills and to use release tags only.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- --run tests/integration/bootstrap-global.test.ts`
 
 Expected: FAIL because bootstrap and the global skill do not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create a short router skill that points to the catalog and CLI. Make bootstrap copy built files and catalog entries into the global paths without copying dormant skills into the active directory.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- --run tests/integration/bootstrap-global.test.ts && npm run build`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add skill scripts catalog tests/integration/bootstrap-global.test.ts

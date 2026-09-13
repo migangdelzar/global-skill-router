@@ -1,0 +1,24 @@
+import { mkdtemp, readFile, readdir, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { bootstrapGlobal } from '../../scripts/bootstrap-global.mjs';
+
+describe('bootstrapGlobal', () => {
+  it('installs only the router skill into active discovery and is idempotent', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'skill-router-home-'));
+    const sourceRoot = process.cwd();
+
+    await bootstrapGlobal({ home, sourceRoot });
+    await bootstrapGlobal({ home, sourceRoot });
+
+    const skillPath = join(home, '.agents/skills/skill-router/SKILL.md');
+    const catalogPath = join(home, '.codex/skill-router/catalog/catalog.yaml');
+    expect((await stat(skillPath)).isFile()).toBe(true);
+    expect((await stat(catalogPath)).isFile()).toBe(true);
+    expect(await readFile(skillPath, 'utf8')).toContain('route');
+    await expect(readdir(join(home, '.agents/skills'))).resolves.toEqual(['skill-router']);
+    await expect(stat(join(home, '.agents/skills/rtk-cli-filter'))).rejects.toThrow();
+    await expect(stat(join(home, '.codex/skill-library'))).rejects.toThrow();
+  });
+});
