@@ -26,12 +26,13 @@
 - RTK is separate global tooling: release-tag only, checksum/version verified, atomic replacement, rollback-capable, never session-cached.
 - `tgrep` remains the repository-search command; RTK must exclude it from command rewriting.
 - RTK is an optional CLI-output adjunct for noisy shell tasks, disabled for exact raw-output requests.
-- Task 1 bootstrap is implemented and review-approved; Task 2 catalog/router behavior is complete.
+- Task 1 bootstrap is implemented and review-approved; Task 2 catalog/router behavior is complete and review-approved.
 - Task 3 stable-release resolver is implemented and review-approved; Task 4 is implemented and verified.
-- Final verification: 62 tests pass; Bun typecheck and build pass; built `doctor` and `explain` commands pass.
+- Final verification: 111 tests pass; Bun typecheck/build and diff check pass; local HEAD matches `origin/feat-global-skill-router`.
 
 ## Results
 
 The router now bootstraps a global launcher, detects required `tgrep`, manages
-stable tgrep/RTK release assets with confirmation and rollback, and keeps
-optional skills/session state separate from global runtime tooling.
+stable tgrep/RTK release assets with confirmation and rollback, supports
+metadata-only update checks and real skill activation, and keeps optional
+skills/session state separate from global runtime tooling.
