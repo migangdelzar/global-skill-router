@@ -560,7 +560,7 @@ git commit -m "feat: add global router bootstrap"
 - Modify: `tasks/todo.md`
 - Test: `tests/integration/end-to-end.test.ts`
 
-- [ ] **Step 1: Write the failing end-to-end test**
+- [x] **Step 1: Write the failing end-to-end test**
 
 Exercise this sequence in a temporary home directory:
 
@@ -575,30 +575,30 @@ bootstrap → list → check-updates → install stable release
 → collect abandoned sessions
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- --run tests/integration/end-to-end.test.ts`
 
 Expected: FAIL until all previous tasks are integrated.
 
-- [ ] **Step 3: Complete documentation and minimal integration fixes**
+- [x] **Step 3: Complete documentation and minimal integration fixes**
 
 Document global paths, release-only policy, cache layout, lock behavior, session cleanup, offline fallback, supported commands, and the fact that no stable release tag means no install.
 
-- [ ] **Step 4: Run the full verification suite**
+- [x] **Step 4: Run the full verification suite**
 
 Run:
 
 ```bash
-npm test -- --run
-npm run typecheck
-npm run build
+bun run test -- --run
+bun run typecheck
+bun run build
 git diff --check
 ```
 
 Expected: zero test failures, zero skipped tests, zero type errors, successful build, and clean diff formatting.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs tasks/todo.md tests/integration/end-to-end.test.ts
@@ -612,10 +612,12 @@ git commit -m "docs: document skill router operations"
 - Create: `src/ports/tooling.ts`
 - Create: `src/services/tool-release-manager.ts`
 - Create: `tests/unit/tool-release-manager.test.ts`
-- Create: `docs/RTK.md`
-- Modify: `src/ports/github.ts`, `src/index.ts`, `src/cli/main.ts`
+- Create: `src/adapters/tooling.ts`
+- Create: `src/services/tooling-registry.ts`
+- Create: `docs/RTK.md`, `docs/TGREP.md`
+- Modify: `src/index.ts`, `src/cli/main.ts`, `bin/skill-router.mjs`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover stable Release-tag selection, rejection of drafts/prereleases/branches/
 untagged artifacts, host asset selection, explicit-confirmation gating,
@@ -623,24 +625,24 @@ checksum and binary-version verification, atomic replacement, preservation of
 the previous binary on failure, rollback, and the invariant that RTK never uses
 the per-session skill cache or silently edits `AGENTS.md`.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- --run tests/unit/tool-release-manager.test.ts`
 
-- [ ] **Step 3: Implement the minimum release manager**
+- [x] **Step 3: Implement the minimum release manager**
 
 Use the same allowlisted GitHub release resolver and lock protocol as skills.
 Download the exact stable RTK asset to a temporary path, verify checksum and
 reported version, then atomically replace the global binary while retaining a
 rollback path.
 
-- [ ] **Step 4: Refactor and document**
+- [x] **Step 4: Refactor and document**
 
 Keep RTK outside skill activation/session cleanup. Document the explicit
 confirmation boundary and the fact that Codex integration changes require a
 reviewable diff.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src tests docs/RTK.md
@@ -676,19 +678,19 @@ Task 2 and Task 3 can be developed independently after Task 1, but all later tas
 
 ## 5. Definition of Done
 
-- [ ] All tasks completed and statuses updated to done.
-- [ ] Stable Release tags are the only installable versions.
-- [ ] No-release repositories fail closed.
-- [ ] Metadata refreshes use TTL, jitter, and per-source single-flight locks.
-- [ ] Artifact publication is atomic and immutable.
-- [ ] Concurrent sessions share one verified artifact.
-- [ ] Session activation is removed without deleting shared cache objects.
-- [ ] Dormant skills remain outside active discovery.
-- [ ] RTK uses only verified stable Release assets with platform selection, checksum/version checks, atomic replacement, and rollback.
-- [ ] RTK installation never silently modifies `AGENTS.md` or global hooks/config.
-- [ ] `npm test -- --run` passes with zero failures and zero skipped tests.
-- [ ] `npm run typecheck` passes.
-- [ ] `npm run build` passes.
-- [ ] Existing workspace PDF/JSON files remain unstaged.
-- [ ] Changes use logical conventional commits.
-- [ ] Branch is pushed to its configured remote before handoff.
+- [x] All tasks completed and statuses updated to done.
+- [x] Stable Release tags are the only installable versions.
+- [x] No-release repositories fail closed.
+- [x] Metadata refreshes use TTL, jitter, and per-source single-flight locks.
+- [x] Artifact publication is atomic and immutable.
+- [x] Concurrent sessions share one verified artifact.
+- [x] Session activation is removed without deleting shared cache objects.
+- [x] Dormant skills remain outside active discovery.
+- [x] RTK and tgrep use only verified stable Release assets with platform selection, checksum/version checks, atomic replacement, and rollback.
+- [x] Runtime-tool installation never silently modifies `AGENTS.md` or global hooks/config.
+- [x] `bun run test -- --run` passes with zero failures and zero skipped tests.
+- [x] `bun run typecheck` passes.
+- [x] `bun run build` passes.
+- [x] Existing workspace PDF/JSON files remain unstaged.
+- [x] Changes use logical conventional commits.
+- [x] Branch is pushed to its configured remote before handoff.

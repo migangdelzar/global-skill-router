@@ -7,7 +7,9 @@
   "scripts": {
     "test": "vitest",
     "typecheck": "tsc --noEmit",
-    "build": "tsc"
+    "build": "tsc",
+    "bootstrap": "bun run build && node scripts/bootstrap-global.mjs",
+    "router": "bun run build && node bin/skill-router.mjs"
   },
   "engines": {
     "bun": ">=1.4.2 <1.5.0",

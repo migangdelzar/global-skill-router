@@ -1,12 +1,31 @@
 import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { NodeFileSystem } from '../adapters/node.js';
+import {
+  ArchiveToolAssetInstaller,
+  currentToolTarget,
+  GitHubToolReleaseClient,
+  PathToolLocator,
+  toolVersion,
+} from '../adapters/tooling.js';
 import { parseCatalog, type SkillEntry } from '../domain/catalog.js';
 import { route } from '../services/skill-router.js';
+import { ToolReleaseManager, type ToolDefinition } from '../services/tool-release-manager.js';
+import { ToolingRegistry, type ManagedToolId } from '../services/tooling-registry.js';
+
+const TOOL_DEFINITIONS: Readonly<Record<ManagedToolId, ToolDefinition>> = {
+  tgrep: { id: 'tgrep', repo: 'microsoft/tgrep', binaryPath: join(homedir(), '.local', 'bin', 'tgrep') },
+  rtk: { id: 'rtk', repo: 'rtk-ai/rtk', binaryPath: join(homedir(), '.local', 'bin', 'rtk') },
+};
 
 export interface CliDependencies {
   catalog: readonly SkillEntry[];
   install?: (skill: SkillEntry) => Promise<void>;
   update?: (skill: SkillEntry) => Promise<void>;
   clean?: (sessionId?: string) => Promise<void>;
+  tooling?: ToolingRegistry;
+  installTool?: (toolId: ManagedToolId, confirm: boolean) => Promise<unknown>;
 }
 
 export interface CliResult {
@@ -17,7 +36,11 @@ export interface CliResult {
 export async function runCli(args: readonly string[], dependencies: CliDependencies): Promise<CliResult> {
   const [command, ...rest] = args;
   if (command === 'list') return { code: 0, output: list(dependencies.catalog) };
+  if (command === 'doctor') return doctor(dependencies.tooling);
   if (command === 'explain') return explain(rest.join(' '), dependencies.catalog);
+  if (command === 'install-tool' || command === 'update-tool') {
+    return installTool(command, rest, dependencies);
+  }
   if (command === 'install' || command === 'update') {
     return installOrUpdate(command, rest, dependencies);
   }
@@ -33,12 +56,48 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
       ? { code: 1, output: `Unknown skill: ${rest[0] ?? ''}` }
       : { code: 0, output: `selected ${skill.id}` };
   }
-  return { code: 1, output: 'Usage: skill-router list|explain|use|install|update|clean' };
+  return { code: 1, output: 'Usage: skill-router list|doctor|explain|use|install|update|install-tool|update-tool|clean' };
+}
+
+async function doctor(tooling: ToolingRegistry | undefined): Promise<CliResult> {
+  if (tooling === undefined) return { code: 2, output: 'tooling status is unavailable' };
+  const statuses = await tooling.status();
+  const output = statuses.map((status) => `${status.id}: ${status.installed ? 'installed' : 'missing'} (required for ${status.requiredFor.join(', ')})`).join('\n');
+  return { code: statuses.some((status) => !status.installed && status.id === 'tgrep') ? 2 : 0, output };
 }
 
 export async function runCliFromDisk(args: readonly string[], catalogPath: string): Promise<CliResult> {
   const catalog = parseCatalog(await readFile(catalogPath, 'utf8'));
-  return runCli(args, { catalog });
+  const fileSystem = new NodeFileSystem();
+  const target = currentToolTarget();
+  const releaseManager = new ToolReleaseManager({
+    fileSystem,
+    client: new GitHubToolReleaseClient(),
+    platform: target.platform,
+    architecture: target.architecture,
+    versionOf: toolVersion,
+    assetInstaller: new ArchiveToolAssetInstaller(),
+  });
+  return runCli(args, {
+    catalog,
+    tooling: new ToolingRegistry(new PathToolLocator()),
+    installTool: (toolId, confirm) => releaseManager.install(TOOL_DEFINITIONS[toolId], confirm),
+  });
+}
+
+async function installTool(
+  command: 'install-tool' | 'update-tool',
+  args: readonly string[],
+  dependencies: CliDependencies,
+): Promise<CliResult> {
+  const toolId = args.find((arg): arg is ManagedToolId => arg === 'tgrep' || arg === 'rtk');
+  if (toolId === undefined) return { code: 1, output: `Unknown tool: ${args[0] ?? ''}` };
+  if (!args.includes('--confirm')) {
+    return { code: 2, output: `${command} ${toolId}; rerun with --confirm to write` };
+  }
+  if (dependencies.installTool === undefined) return { code: 2, output: `${command} is unavailable in this composition` };
+  const result = await dependencies.installTool(toolId, true) as { tag?: string; path?: string };
+  return { code: 0, output: `${command} complete: ${toolId}${result.tag === undefined ? '' : ` ${result.tag}`}${result.path === undefined ? '' : ` -> ${result.path}`}` };
 }
 
 function list(catalog: readonly SkillEntry[]): string {

@@ -5,6 +5,7 @@ export interface FileSystem {
   createExclusive(path: string, content: string): Promise<boolean>;
   removeIfMatches(path: string, content: string): Promise<boolean>;
   writeText(path: string, content: string): Promise<void>;
+  writeBytes(path: string, content: Uint8Array): Promise<void>;
   mkdir(path: string): Promise<void>;
   remove(path: string): Promise<void>;
   rename(from: string, to: string): Promise<void>;

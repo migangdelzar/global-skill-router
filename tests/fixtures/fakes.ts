@@ -65,6 +65,11 @@ export class FakeFileSystem implements FileSystem {
     this.files.set(path, content);
   }
 
+  async writeBytes(path: string, content: Uint8Array): Promise<void> {
+    this.calls.push(['writeBytes', path, String(content.length)]);
+    this.files.set(path, new TextDecoder().decode(content));
+  }
+
   async mkdir(path: string): Promise<void> {
     this.calls.push(['mkdir', path]);
     this.directories.add(path);

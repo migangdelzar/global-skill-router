@@ -1,7 +1,7 @@
 # Global Skill Router Design
 
 **Date:** 2026-09-13  
-**Status:** Approved design, pending implementation  
+**Status:** Implemented
 **Scope:** Codex global skill discovery, versioning, caching, and session activation
 
 ## Goal
@@ -183,7 +183,15 @@ Rules:
 - A newer release is recorded as an available update; it does not mutate an active session.
 - Prereleases require an explicit user request and a separate policy override.
 
-## Runtime Tooling: RTK
+## Runtime Tooling: tgrep and RTK
+
+`tgrep` is a required global repository-search dependency. `doctor` checks for
+it explicitly, and the release manager can install/update it from the newest
+stable `microsoft/tgrep` asset for the host target. If it is missing, the
+router reports the prerequisite instead of silently changing search semantics
+to `rg` or `grep`. The global bootstrap installs a launcher at
+`~/.local/bin/skill-router`; the active Codex discovery directory receives
+only the router `SKILL.md`.
 
 RTK is a global runtime-tooling layer, not a session skill. It compresses
 supported shell output before it reaches the agent. The router can return an

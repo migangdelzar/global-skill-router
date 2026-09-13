@@ -33,3 +33,13 @@ export {
 export type { ArtifactCacheOptions, CachedArtifact } from './services/artifact-cache.js';
 export { SessionIntegrityError, SessionManagerService } from './services/session-manager.js';
 export type { SessionManagerOptions } from './services/session-manager.js';
+export { ToolInstallError, ToolReleaseManager } from './services/tool-release-manager.js';
+export type { ToolDefinition, ToolReleaseManagerOptions } from './services/tool-release-manager.js';
+export { ToolingRegistry } from './services/tooling-registry.js';
+export type { ManagedToolId, ToolLocator, ToolStatus } from './services/tooling-registry.js';
+export type {
+  ToolAsset,
+  ToolInstallResult,
+  ToolRelease,
+  ToolReleaseClient,
+} from './ports/tooling.js';

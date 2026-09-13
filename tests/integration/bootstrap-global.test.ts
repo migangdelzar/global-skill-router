@@ -14,8 +14,13 @@ describe('bootstrapGlobal', () => {
 
     const skillPath = join(home, '.agents/skills/skill-router/SKILL.md');
     const catalogPath = join(home, '.codex/skill-router/catalog/catalog.yaml');
+    const internalLauncher = join(home, '.codex/skill-router/bin/skill-router.mjs');
+    const launcher = join(home, '.local/bin/skill-router');
     expect((await stat(skillPath)).isFile()).toBe(true);
     expect((await stat(catalogPath)).isFile()).toBe(true);
+    expect((await stat(internalLauncher)).isFile()).toBe(true);
+    expect((await stat(launcher)).isFile()).toBe(true);
+    expect(await readFile(launcher, 'utf8')).toContain('.codex/skill-router/bin/skill-router.mjs');
     expect(await readFile(skillPath, 'utf8')).toContain('route');
     await expect(readdir(join(home, '.agents/skills'))).resolves.toEqual(['skill-router']);
     await expect(stat(join(home, '.agents/skills/rtk-cli-filter'))).rejects.toThrow();

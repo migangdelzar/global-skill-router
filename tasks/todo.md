@@ -10,9 +10,9 @@
 - [x] Add verified artifact caching with atomic publication
 - [x] Add CLI routing commands and native filesystem/archive adapters
 - [x] Add global router skill and bootstrap command
-- [ ] Add RTK release-managed global tooling with rollback safeguards
-- [ ] Run verification: tests, typecheck/lint, and deterministic cache scenarios
-- [ ] Document install/update commands and operational limits
+- [x] Add RTK/tgrep release-managed global tooling with rollback safeguards
+- [x] Run verification: tests, typecheck/lint, and deterministic cache scenarios
+- [x] Document install/update commands and operational limits
 
 ## Working Notes
 
@@ -28,3 +28,10 @@
 - RTK is an optional CLI-output adjunct for noisy shell tasks, disabled for exact raw-output requests.
 - Task 1 bootstrap is implemented and review-approved; Task 2 catalog/router behavior is complete.
 - Task 3 stable-release resolver is implemented and review-approved; Task 4 is implemented and verified.
+- Final verification: 62 tests pass; Bun typecheck and build pass; built `doctor` and `explain` commands pass.
+
+## Results
+
+The router now bootstraps a global launcher, detects required `tgrep`, manages
+stable tgrep/RTK release assets with confirmation and rollback, and keeps
+optional skills/session state separate from global runtime tooling.

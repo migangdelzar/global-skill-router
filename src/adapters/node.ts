@@ -38,6 +38,11 @@ export class NodeFileSystem implements FileSystem {
     }
   }
 
+  async writeBytes(path: string, content: Uint8Array): Promise<void> {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content);
+  }
+
   async list(path: string): Promise<readonly string[]> {
     return (await readdir(path, { withFileTypes: true })).map((entry) => entry.name);
   }

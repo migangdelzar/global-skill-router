@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { runCli } from '../../src/cli/main.js';
 import type { SkillEntry } from '../../src/domain/catalog.js';
+import { ToolingRegistry } from '../../src/services/tooling-registry.js';
 
 const catalog: SkillEntry[] = [
   {
@@ -44,5 +45,45 @@ describe('skill-router CLI', () => {
     expect(result.code).toBe(2);
     expect(result.output).toContain('--confirm');
     expect(called).toBe(false);
+  });
+
+  it('reports missing tgrep through doctor instead of silently falling back', async () => {
+    const result = await runCli(['doctor'], {
+      catalog,
+      tooling: new ToolingRegistry({ has: async (command) => command === 'rtk' }),
+    });
+
+    expect(result.code).toBe(2);
+    expect(result.output).toContain('tgrep: missing');
+  });
+
+  it('requires confirmation before installing global tooling', async () => {
+    let called = false;
+    const result = await runCli(['install-tool', 'tgrep'], {
+      catalog,
+      installTool: async () => {
+        called = true;
+        return { preview: true };
+      },
+    });
+
+    expect(result.code).toBe(2);
+    expect(result.output).toContain('--confirm');
+    expect(called).toBe(false);
+  });
+
+  it('routes confirmed global tooling installation to the release manager', async () => {
+    let installed: string | undefined;
+    const result = await runCli(['install-tool', 'tgrep', '--confirm'], {
+      catalog,
+      installTool: async (toolId, confirm) => {
+        installed = `${toolId}:${confirm}`;
+        return { toolId, tag: 'v1.0.6', path: '/home/test/.local/bin/tgrep' };
+      },
+    });
+
+    expect(result.code).toBe(0);
+    expect(installed).toBe('tgrep:true');
+    expect(result.output).toContain('install-tool complete: tgrep');
   });
 });
