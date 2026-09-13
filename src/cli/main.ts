@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { NodeFileSystem } from '../adapters/node.js';
+import { TarGzipExtractor } from '../adapters/node.js';
+import { GitHubReleaseClient } from '../adapters/github.js';
 import {
   ArchiveToolAssetInstaller,
   currentToolTarget,
@@ -13,6 +15,16 @@ import { parseCatalog, type SkillEntry } from '../domain/catalog.js';
 import { route } from '../services/skill-router.js';
 import { ToolReleaseManager, type ToolDefinition } from '../services/tool-release-manager.js';
 import { ToolingRegistry, type ManagedToolId } from '../services/tooling-registry.js';
+import { ArtifactCacheService } from '../services/artifact-cache.js';
+import { MetadataCacheService } from '../services/metadata-cache.js';
+import { FileSystemSourceLock } from '../services/source-lock.js';
+import { SessionManagerService } from '../services/session-manager.js';
+import { ReleaseResolverService } from '../services/release-resolver.js';
+import type { ArchiveExtractor } from '../ports/archive.js';
+import type { Clock } from '../ports/clock.js';
+import type { FileSystem } from '../ports/filesystem.js';
+import type { GitHubClient } from '../ports/github.js';
+import type { SourceLock } from '../ports/lock.js';
 
 const TOOL_DEFINITIONS: Readonly<Record<ManagedToolId, ToolDefinition>> = {
   tgrep: { id: 'tgrep', repo: 'microsoft/tgrep', binaryPath: join(homedir(), '.local', 'bin', 'tgrep') },
@@ -31,6 +43,15 @@ export interface CliDependencies {
 export interface CliResult {
   code: number;
   output: string;
+}
+
+export interface DiskCliOptions {
+  cacheRoot?: string;
+  fileSystem?: FileSystem;
+  clock?: Clock;
+  github?: GitHubClient;
+  archiveExtractor?: ArchiveExtractor;
+  sourceLock?: SourceLock;
 }
 
 export async function runCli(args: readonly string[], dependencies: CliDependencies): Promise<CliResult> {
@@ -66,9 +87,45 @@ async function doctor(tooling: ToolingRegistry | undefined): Promise<CliResult> 
   return { code: statuses.some((status) => !status.installed && status.id === 'tgrep') ? 2 : 0, output };
 }
 
-export async function runCliFromDisk(args: readonly string[], catalogPath: string): Promise<CliResult> {
+export async function runCliFromDisk(
+  args: readonly string[],
+  catalogPath: string,
+  options: DiskCliOptions = {},
+): Promise<CliResult> {
   const catalog = parseCatalog(await readFile(catalogPath, 'utf8'));
-  const fileSystem = new NodeFileSystem();
+  const fileSystem = options.fileSystem ?? new NodeFileSystem();
+  const clock = options.clock ?? new SystemClock();
+  const github = options.github ?? new GitHubReleaseClient();
+  const cacheRoot = options.cacheRoot ?? join(homedir(), '.codex/skill-router/cache');
+  const sourceLock = options.sourceLock ?? new FileSystemSourceLock({
+    fileSystem,
+    clock,
+    lockRoot: `${cacheRoot}/locks`,
+  });
+  const resolver = new ReleaseResolverService(github, clock);
+  const metadata = new MetadataCacheService({
+    cacheRoot,
+    clock,
+    fileSystem,
+    resolver,
+    sourceLock,
+    lockTimeoutMs: 30_000,
+  });
+  const extractor = options.archiveExtractor ?? new TarGzipExtractor();
+  const artifacts = new ArtifactCacheService({
+    cacheRoot,
+    fileSystem,
+    archiveExtractor: extractor,
+    sourceLock,
+    download: (repo, tag) => github.downloadTagArchive(repo, tag),
+    skillExists: (root, skillPath) => fileSystem.exists(`${root}/${skillPath === '.' ? '' : `${skillPath}/`}SKILL.md`),
+  });
+  const sessions = new SessionManagerService({
+    root: cacheRoot,
+    fileSystem,
+    clock,
+    abandonedTtlMs: 24 * 60 * 60 * 1_000,
+  });
   const target = currentToolTarget();
   const releaseManager = new ToolReleaseManager({
     fileSystem,
@@ -78,11 +135,39 @@ export async function runCliFromDisk(args: readonly string[], catalogPath: strin
     versionOf: toolVersion,
     assetInstaller: new ArchiveToolAssetInstaller(),
   });
+  const activate = async (skill: SkillEntry): Promise<void> => {
+    const sessionId = sessionIdFromArgs(args);
+    const metadataRecord = await metadata.getLatest(skill.source, sessionId);
+    const artifact = await artifacts.ensure(metadataRecord.release, skill.skillPath);
+    await sessions.activate(sessionId, artifact);
+  };
   return runCli(args, {
     catalog,
     tooling: new ToolingRegistry(new PathToolLocator()),
     installTool: (toolId, confirm) => releaseManager.install(TOOL_DEFINITIONS[toolId], confirm),
+    install: activate,
+    update: activate,
+    clean: async (sessionId) => {
+      if (sessionId === undefined) {
+        await sessions.collectAbandoned(clock.now());
+      } else {
+        await sessions.cleanup(sessionId);
+      }
+    },
   });
+}
+
+class SystemClock implements Clock {
+  now(): Date { return new Date(); }
+  random(): number { return Math.random(); }
+}
+
+function sessionIdFromArgs(args: readonly string[]): string {
+  const index = args.indexOf('--session');
+  const explicit = index >= 0 ? args[index + 1] : undefined;
+  const value = explicit ?? process.env.SKILL_ROUTER_SESSION ?? `cli-${process.pid}`;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value)) throw new Error(`unsafe session id ${value}`);
+  return value;
 }
 
 async function installTool(

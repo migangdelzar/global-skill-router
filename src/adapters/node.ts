@@ -80,7 +80,7 @@ export class TarGzipExtractor implements ArchiveExtractor {
     const archivePath = `${temporaryDirectory}/archive.tar.gz`;
     try {
       await writeFile(archivePath, archive);
-      await execFileAsync('tar', ['-xzf', archivePath, '-C', destination]);
+      await execFileAsync('tar', ['-xzf', archivePath, '--strip-components=1', '-C', destination]);
     } finally {
       await rm(temporaryDirectory, { recursive: true, force: true });
     }
