@@ -24,3 +24,4 @@
 - `tgrep` remains the repository-search command; RTK must exclude it from command rewriting.
 - RTK is an optional CLI-output adjunct for noisy shell tasks, disabled for exact raw-output requests.
 - Task 1 bootstrap is implemented and review-approved; Task 2 catalog/router behavior is complete.
+- Task 3 stable-release resolver is implemented and review-approved; Task 4 is active.

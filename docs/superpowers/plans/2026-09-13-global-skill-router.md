@@ -249,7 +249,7 @@ export interface ReleaseResolver {
 }
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover:
 
@@ -259,23 +259,23 @@ Cover:
 4. Reject an empty or malformed tag response.
 5. Never call `downloadTagArchive` during resolution.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -- --run tests/unit/release-resolver.test.ts`
 
 Expected: FAIL because the resolver and error types do not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Filter releases, sort by `publishedAt` descending, resolve exactly one tag, and return the immutable SHA record. Do not fall back to `main`, `master`, or any branch.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- --run tests/unit/release-resolver.test.ts && npm run typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/domain/version.ts src/services/release-resolver.ts tests/unit/release-resolver.test.ts

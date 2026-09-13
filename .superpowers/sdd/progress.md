@@ -8,7 +8,12 @@
 
 ## Active
 
-- Task 2: catalog parsing and route policy.
+- Task 4: metadata TTL, jitter, and single-flight locking.
+
+## Approved
+
+- Task 2 catalog/router, including tgrep/RTK routing policy.
+- Task 3 stable-release resolver, including resolved SHA validation.
 
 ## Constraints
 
