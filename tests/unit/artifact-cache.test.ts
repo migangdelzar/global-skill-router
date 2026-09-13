@@ -94,4 +94,44 @@ describe('ArtifactCacheService', () => {
       }).ensure(release, 'skills/demo'),
     ).rejects.toThrow(/SKILL\.md/);
   });
+
+  it('does not reuse metadata for another repository or redirecting object', async () => {
+    const fileSystem = new FakeFileSystem();
+    let downloads = 0;
+    const cache = new ArtifactCacheService({
+      cacheRoot: '/cache',
+      fileSystem,
+      archiveExtractor: new FakeArchiveExtractor(),
+      sourceLock: new FakeLock(),
+      download: async () => {
+        downloads += 1;
+        return new Uint8Array([1]);
+      },
+      skillExists: () => true,
+    });
+
+    const first = await cache.ensure(release, 'skills/demo');
+    await fileSystem.writeText(`${first.objectPath}.json`, JSON.stringify({ ...first, repo: 'other/repo', objectPath: '/cache/objects/redirect' }));
+    await fileSystem.mkdir('/cache/objects/redirect');
+
+    const second = await cache.ensure(release, 'skills/demo');
+
+    expect(downloads).toBe(2);
+    expect(second.repo).toBe(release.repo);
+    expect(second.objectPath).toBe(first.objectPath);
+  });
+
+  it('rejects a release with an unsafe commit SHA before touching the cache', async () => {
+    const fileSystem = new FakeFileSystem();
+    const unsafeRelease = { ...release, commitSha: 'main' };
+
+    await expect(new ArtifactCacheService({
+      cacheRoot: '/cache',
+      fileSystem,
+      archiveExtractor: new FakeArchiveExtractor(),
+      sourceLock: new FakeLock(),
+      download: async () => new Uint8Array([1]),
+      skillExists: () => true,
+    }).ensure(unsafeRelease, 'skills/demo')).rejects.toThrow(/commit SHA/i);
+  });
 });

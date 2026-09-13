@@ -37,6 +37,7 @@ export class ArtifactCacheService {
 
   async ensure(release: ResolvedRelease, skillPath: string): Promise<CachedArtifact> {
     validateSkillPath(skillPath);
+    validateCommitSha(release.commitSha);
     const objectPath = artifactPath(this.options.cacheRoot, release, skillPath);
     const metadataPath = `${objectPath}.json`;
     const lease = await this.options.sourceLock.acquire(
@@ -46,7 +47,7 @@ export class ArtifactCacheService {
     );
 
     try {
-      const existing = await this.readExisting(metadataPath);
+      const existing = await this.readExisting(metadataPath, release, skillPath, objectPath);
       if (existing !== null) return existing;
 
       const temporaryPath = `${objectPath}.tmp-${this.temporarySequence++}`;
@@ -81,11 +82,23 @@ export class ArtifactCacheService {
     }
   }
 
-  private async readExisting(metadataPath: string): Promise<CachedArtifact | null> {
+  private async readExisting(
+    metadataPath: string,
+    release: ResolvedRelease,
+    skillPath: string,
+    expectedObjectPath: string,
+  ): Promise<CachedArtifact | null> {
     if (!(await this.options.fileSystem.exists(metadataPath))) return null;
     try {
       const value: unknown = JSON.parse(await this.options.fileSystem.readText(metadataPath));
       if (!isCachedArtifact(value)) return null;
+      if (
+        value.repo !== release.repo ||
+        value.skillPath !== skillPath ||
+        value.tag !== release.tag ||
+        value.commitSha.toLowerCase() !== release.commitSha.toLowerCase() ||
+        value.objectPath !== expectedObjectPath
+      ) return null;
       if (!(await this.options.fileSystem.exists(value.objectPath))) return null;
       return value;
     } catch {
@@ -99,6 +112,7 @@ export function artifactPath(
   release: ResolvedRelease,
   skillPath: string,
 ): string {
+  validateCommitSha(release.commitSha);
   return `${cacheRoot}/objects/${encodeURIComponent(release.repo)}-${encodeURIComponent(skillPath)}-${release.commitSha}`;
 }
 
@@ -109,6 +123,12 @@ function validateSkillPath(skillPath: string): void {
     skillPath.split('/').some((segment) => segment === '' || segment === '.' || segment === '..')
   ) {
     throw new ArtifactValidationError(`unsafe skill path ${skillPath}`);
+  }
+}
+
+function validateCommitSha(commitSha: string): void {
+  if (!/^[0-9a-f]{40}$/i.test(commitSha)) {
+    throw new ArtifactValidationError(`unsafe commit SHA ${commitSha}`);
   }
 }
 
