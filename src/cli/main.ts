@@ -66,6 +66,9 @@ export async function runCli(args: readonly string[], dependencies: CliDependenc
     return installOrUpdate(command, rest, dependencies);
   }
   if (command === 'clean') {
+    if (!rest.includes('--confirm')) {
+      return { code: 2, output: 'clean; rerun with --confirm to write' };
+    }
     const sessionIndex = rest.indexOf('--session');
     const sessionId = sessionIndex >= 0 ? rest[sessionIndex + 1] : undefined;
     if (dependencies.clean !== undefined) await dependencies.clean(sessionId);

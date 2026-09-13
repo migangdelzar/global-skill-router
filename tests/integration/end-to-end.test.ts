@@ -81,7 +81,18 @@ skills:
     await expect(fileSystem.exists(`${activeRoot}/SKILL.md`)).resolves.toBe(true);
     await expect(fileSystem.exists(`${activeRoot}/sibling/SKILL.md`)).resolves.toBe(false);
 
-    const clean = await runCliFromDisk(['clean', '--session', 'session-a'], catalogPath, {
+    const previewClean = await runCliFromDisk(['clean', '--session', 'session-a'], catalogPath, {
+      cacheRoot: '/cache',
+      fileSystem,
+      clock,
+      github: new DiskGitHub(),
+      archiveExtractor: new DiskExtractor(fileSystem),
+    });
+
+    expect(previewClean.code).toBe(2);
+    await expect(fileSystem.exists('/cache/sessions/session-a')).resolves.toBe(true);
+
+    const clean = await runCliFromDisk(['clean', '--session', 'session-a', '--confirm'], catalogPath, {
       cacheRoot: '/cache',
       fileSystem,
       clock,
