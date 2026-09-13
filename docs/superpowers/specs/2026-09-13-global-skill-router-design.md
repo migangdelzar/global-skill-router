@@ -191,7 +191,10 @@ stable `microsoft/tgrep` asset for the host target. If it is missing, the
 router reports the prerequisite instead of silently changing search semantics
 to `rg` or `grep`. The global bootstrap installs a launcher at
 `~/.local/bin/skill-router`; the active Codex discovery directory receives
-only the router `SKILL.md`.
+only the router `SKILL.md`. The bootstrap also copies that canonical skill to
+`~/.claude/skills/` for Claude Code. OpenCode uses its global
+`~/.agents/skills/` compatibility path, avoiding duplicate skill IDs under
+`~/.config/opencode/skills/`.
 
 RTK is a global runtime-tooling layer, not a session skill. It compresses
 supported shell output before it reaches the agent. The router can return an

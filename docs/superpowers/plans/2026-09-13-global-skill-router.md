@@ -649,6 +649,60 @@ git add src tests docs/RTK.md
 git commit -m "feat: add release-managed RTK tooling"
 ```
 
+### Task 11: Install the router across local Agent Skills harnesses
+
+**Files:**
+
+- Modify: `scripts/bootstrap-global.mjs`
+- Modify: `tests/integration/bootstrap-global.test.ts`
+- Modify: `docs/INSTALL.md`
+- Modify: `docs/superpowers/specs/2026-09-13-global-skill-router-design.md`
+
+**Interfaces:**
+
+- Consumes: the canonical `skill/SKILL.md` and existing Codex bootstrap paths.
+- Produces: the same `skill-router/SKILL.md` under `~/.agents/skills/` and
+  `~/.claude/skills/`, while OpenCode uses its documented `~/.agents/skills/`
+  compatibility path.
+
+- [x] **Step 1: Write the failing test**
+
+Extend the bootstrap integration test to assert that the Claude personal path
+contains the same router skill and that the returned bootstrap result exposes
+the path. Do not add a duplicate OpenCode copy.
+
+- [x] **Step 2: Run test to verify it fails**
+
+Run: `bun run test -- --run tests/integration/bootstrap-global.test.ts`
+
+Expected: FAIL because the bootstrap currently installs only the Codex/agent
+path.
+
+- [x] **Step 3: Write minimal implementation**
+
+Copy the canonical skill to `join(home, '.claude/skills/skill-router/SKILL.md')`
+and create its parent directory with the existing idempotent bootstrap flow.
+Return `claudeSkill` from `bootstrapGlobal` so callers can verify the target.
+
+- [x] **Step 4: Run test to verify it passes**
+
+Run: `bun run test -- --run tests/integration/bootstrap-global.test.ts && bun run typecheck`
+
+Expected: PASS with zero failures and zero TypeScript errors.
+
+- [x] **Step 5: Update operational docs**
+
+Document that the installer targets Codex/Agent Skills at `~/.agents/skills/`
+and Claude Code at `~/.claude/skills/`; OpenCode discovers the shared agent
+path and receives no duplicate skill directory.
+
+- [x] **Step 6: Commit**
+
+```bash
+git add scripts/bootstrap-global.mjs tests/integration/bootstrap-global.test.ts docs/INSTALL.md docs/superpowers/specs/2026-09-13-global-skill-router-design.md docs/superpowers/plans/2026-09-13-global-skill-router.md
+git commit -m "feat: bootstrap router across agent harnesses"
+```
+
 ## 3. Dependency Notes
 
 ```text

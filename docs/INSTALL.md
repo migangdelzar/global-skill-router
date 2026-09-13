@@ -7,9 +7,12 @@ bun install --frozen-lockfile
 bun run bootstrap
 ```
 
-Only `skill-router/SKILL.md` enters `~/.agents/skills/`. Catalog, CLI, and
-dormant sources stay under `~/.codex/skill-router/` or
-`~/.codex/skill-library/`.
+The bootstrap installs the same canonical `skill-router/SKILL.md` into
+`~/.agents/skills/` for Codex and Agent Skills-compatible harnesses, and
+`~/.claude/skills/` for Claude Code. OpenCode discovers the shared
+`~/.agents/skills/` compatibility path, so no duplicate OpenCode copy is
+created. Catalog, CLI, and dormant sources stay under `~/.codex/skill-router/`
+or `~/.codex/skill-library/`.
 
 The bootstrap also installs `~/.local/bin/skill-router`. Keep `~/.local/bin`
 on `PATH`, then run `skill-router doctor` to check global tooling.
