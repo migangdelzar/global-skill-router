@@ -1,0 +1,822 @@
+# Review package: 5d9cdcd..054a7a4
+
+## Commits
+054a7a4 feat: add AIUP core requirements baseline
+214d847 docs: add AIUP baseline task brief
+
+## Files changed
+ .superpowers/sdd/aiup-task-1-brief.md  | 46 +++++++++++++++++
+ .superpowers/sdd/aiup-task-1-report.md | 58 ++++++++++++++++++++++
+ catalog/catalog.yaml                   | 68 +++++++++++++++++++++++++
+ docs/INSTALL.md                        |  5 ++
+ docs/USAGE.md                          |  6 +++
+ src/domain/catalog.ts                  | 10 +++-
+ tasks/todo.md                          |  7 ++-
+ tests/integration/cli.test.ts          |  1 +
+ tests/integration/end-to-end.test.ts   |  3 ++
+ tests/unit/catalog.test.ts             | 90 ++++++++++++++++++++++++++++++++++
+ tests/unit/skill-router.test.ts        | 24 +++++++++
+ 11 files changed, 315 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/.superpowers/sdd/aiup-task-1-brief.md b/.superpowers/sdd/aiup-task-1-brief.md
+new file mode 100644
+index 0000000..b70c457
+--- /dev/null
++++ b/.superpowers/sdd/aiup-task-1-brief.md
+@@ -0,0 +1,46 @@
++# AIUP Task 1: Add the core requirements baseline
++
++Read the approved plan at `docs/superpowers/plans/2026-09-13-aiup-core-baseline.md` first.
++
++Implement one catalog change:
++
++- Extend `SkillEntry` with required `preinstalled: boolean`.
++- Validate the field in `parseCatalog`; missing/non-boolean values must name `preinstalled` in `CatalogValidationError`.
++- Add exactly six AIUP baseline entries to `catalog/catalog.yaml`, all with `source: AI-Unified-Process/marketplace`, `preinstalled: true`, `release_policy: latest-stable-tag`, and paths under `aiup-core/skills/`:
++  `requirements`, `reverse-engineer`, `entity-model`, `use-case-diagram`, `use-case-spec`, `test-case`.
++- Use `activation: automatic` only for requirements and reverse-engineer. Use `explicit` for the other four.
++- Extend the source allowlist to permit exactly `AI-Unified-Process/marketplace`; retain all existing safety checks and release-only fail-closed behavior.
++- Update catalog/router tests for parsing, auto-routing, downstream non-auto-routing, and missing field validation.
++- Update `docs/INSTALL.md`, `docs/USAGE.md`, and `tasks/todo.md` to state that AIUP is baseline catalog intent but remains dormant/release-gated; do not install Context7 MCP.
++
++Required TDD tests:
++
++```ts
++it('parses preinstalled AIUP entries with their exact source and skill paths', () => {
++  const skills = parseCatalog(aiupCatalogYaml);
++  expect(skills.filter((skill) => skill.id.startsWith('aiup-'))).toHaveLength(6);
++  expect(skills.every((skill) => skill.preinstalled)).toBe(true);
++  expect(skills.every((skill) => skill.source === 'AI-Unified-Process/marketplace')).toBe(true);
++});
++
++it('routes requirements and brownfield tasks to AIUP automatic skills', () => {
++  expect(route({ task: 'turn this vision into measurable requirements' }, skills).primary?.id)
++    .toBe('aiup-requirements');
++  expect(route({ task: 'reverse engineer this existing application' }, skills).primary?.id)
++    .toBe('aiup-reverse-engineer');
++});
++
++it('does not auto-route downstream AIUP skills', () => {
++  const result = route({ task: 'model entities and draw use cases' }, skills);
++  expect(result.primary?.id).not.toBe('aiup-entity-model');
++  expect(result.primary?.id).not.toBe('aiup-use-case-diagram');
++});
++
++it('rejects a catalog entry without the preinstalled boolean', () => {
++  expect(() => parseCatalog(missingPreinstalled)).toThrow(/preinstalled/);
++});
++```
++
++Use existing test helpers/conventions and define fixtures in the tests. Do not modify PDF/JSON files, global AGENTS/Caveman/Superpowers/tgrep/RTK behavior, or download any AIUP source. Run focused tests, full `bun run test -- --run`, `bun run typecheck`, `bun run build`, and `git diff --check`.
++
++Commit logical changes with `feat: add AIUP core requirements baseline` and write the full verification report to `.superpowers/sdd/aiup-task-1-report.md`.
+diff --git a/.superpowers/sdd/aiup-task-1-report.md b/.superpowers/sdd/aiup-task-1-report.md
+new file mode 100644
+index 0000000..5cb8513
+--- /dev/null
++++ b/.superpowers/sdd/aiup-task-1-report.md
+@@ -0,0 +1,58 @@
++# AIUP Task 1 Report
++
++## Result
++
++Added the six AIUP core baseline entries as preinstalled catalog intent:
++
++- `aiup-requirements` — automatic
++- `aiup-reverse-engineer` — automatic
++- `aiup-entity-model` — explicit
++- `aiup-use-case-diagram` — explicit
++- `aiup-use-case-spec` — explicit
++- `aiup-test-case` — explicit
++
++All entries use source `AI-Unified-Process/marketplace`, paths under
++`aiup-core/skills/`, `preinstalled: true`, and
++`release_policy: latest-stable-tag`.
++
++Extended `SkillEntry` and `parseCatalog` so `preinstalled` is required and must
++be boolean. The AIUP source is accepted by the existing safe GitHub source
++validation. Requirements and brownfield work route automatically; downstream
++AIUP skills remain explicit and dormant.
++
++Updated existing test fixtures for the required schema field and documented that
++AIUP remains release-gated and that Context7 MCP is not installed. Existing
++Caveman, Superpowers, tgrep, RTK, PDF, and JSON behavior was not changed.
++
++## TDD Evidence
++
++1. Added catalog/router tests before implementation.
++2. RED verification:
++   `bun run test -- --run tests/unit/catalog.test.ts tests/unit/skill-router.test.ts`
++   produced 2 expected failures: missing `preinstalled` was not yet validated.
++3. GREEN verification passed after schema and catalog implementation.
++4. Updated integration fixtures required by the schema contract and reran all
++   checks successfully.
++
++## Verification
++
++- Focused tests: `30 passed` (`tests/unit/catalog.test.ts`, `tests/unit/skill-router.test.ts`)
++- Full suite: `115 passed`, `15 test files passed`
++- Typecheck: `bun run typecheck` passed
++- Build: `bun run build` passed
++- Diff validation: `git diff --check` passed
++- No AIUP source downloaded
++- No Context7 MCP installed
++- Existing PDF/JSON files remain untouched and unstaged
++
++## Files Changed
++
++- `src/domain/catalog.ts`
++- `catalog/catalog.yaml`
++- `tests/unit/catalog.test.ts`
++- `tests/unit/skill-router.test.ts`
++- `tests/integration/cli.test.ts`
++- `tests/integration/end-to-end.test.ts`
++- `docs/INSTALL.md`
++- `docs/USAGE.md`
++- `tasks/todo.md`
+diff --git a/catalog/catalog.yaml b/catalog/catalog.yaml
+index 5cd2c45..c583526 100644
+--- a/catalog/catalog.yaml
++++ b/catalog/catalog.yaml
+@@ -1,73 +1,141 @@
+ skills:
+   - id: emil-design-eng
+     category: ui
+     source: emilkowalski/skills
+     skill_path: skills/emil-design-eng
+     use_when: [ui polish, animation, interaction, component craft]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: [ui-ux-pro-max, impeccable]
+     requires: []
+     release_policy: latest-stable-tag
+   - id: apple-design
+     category: ui-platform
+     source: emilkowalski/skills
+     skill_path: skills/apple-design
+     use_when: [Apple platform, iOS, macOS, Human Interface Guidelines]
+     activation: explicit
++    preinstalled: false
+     conflicts_with: []
+     requires: []
+     release_policy: latest-stable-tag
+   - id: taste
+     category: ui-research
+     source: senlindesign/taste-skill
+     skill_path: .
+     use_when: [analyze website design, extract design DNA, study visual reference]
+     activation: explicit
++    preinstalled: false
+     conflicts_with: []
+     requires: [playwright]
+     release_policy: latest-stable-tag
+   - id: impeccable
+     category: ui-audit
+     source: pbakaus/impeccable
+     skill_path: .
+     use_when: [UI audit, accessibility audit, visual polish]
+     activation: explicit
++    preinstalled: false
+     conflicts_with: [ui-ux-pro-max, emil-design-eng]
+     requires: []
+     release_policy: latest-stable-tag
+   - id: ui-ux-pro-max
+     category: ui-system
+     source: nextlevelbuilder/ui-ux-pro-max-skill
+     skill_path: .
+     use_when: [design system, style exploration, UI architecture]
+     activation: explicit
++    preinstalled: false
+     conflicts_with: [emil-design-eng, impeccable]
+     requires: []
+     release_policy: latest-stable-tag
+   - id: graphify
+     category: codebase
+     source: safishamsi/graphify
+     skill_path: .
+     use_when: [codebase graph, dependency graph, repository map]
+     activation: explicit
++    preinstalled: false
+     conflicts_with: [understand-anything]
+     requires: []
+     release_policy: latest-stable-tag
+   - id: understand-anything
+     category: codebase
+     source: EgonexAI/Understand-Anything
+     skill_path: .
+     use_when: [understand codebase, visualize repository, explore codebase]
+     activation: explicit
++    preinstalled: false
+     conflicts_with: [graphify]
+     requires: []
+     release_policy: latest-stable-tag
+   - id: rtk-cli-filter
+     category: tooling
+     source: rtk-ai/rtk
+     skill_path: .
+     use_when: [run tests, inspect git, build logs, shell-heavy coding task]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: []
+     requires: [rtk]
+     release_policy: latest-stable-tag
++  - id: aiup-requirements
++    category: requirements
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/requirements
++    use_when: [requirements, vision, acceptance criteria, ambiguity]
++    activation: automatic
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-reverse-engineer
++    category: requirements
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/reverse-engineer
++    use_when: [reverse engineer, brownfield, existing application]
++    activation: automatic
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-entity-model
++    category: requirements-modeling
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/entity-model
++    use_when: [entity model, domain model, data model]
++    activation: explicit
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-use-case-diagram
++    category: requirements-modeling
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/use-case-diagram
++    use_when: [use case diagram, system use cases, actors]
++    activation: explicit
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-use-case-spec
++    category: requirements
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/use-case-spec
++    use_when: [use case specification, main success scenario, alternative flow]
++    activation: explicit
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-test-case
++    category: requirements-testing
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/test-case
++    use_when: [test case, user journey, acceptance journey]
++    activation: explicit
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
+diff --git a/docs/INSTALL.md b/docs/INSTALL.md
+index 8761a8c..353d886 100644
+--- a/docs/INSTALL.md
++++ b/docs/INSTALL.md
+@@ -13,10 +13,15 @@ The bootstrap installs the same canonical `skill-router/SKILL.md` into
+ `~/.agents/skills/` compatibility path, so no duplicate OpenCode copy is
+ created. Catalog, CLI, and dormant sources stay under `~/.codex/skill-router/`
+ or `~/.codex/skill-library/`.
+ 
+ The bootstrap also installs `~/.local/bin/skill-router`. Keep `~/.local/bin`
+ on `PATH`, then run `skill-router doctor` to check global tooling.
+ 
+ Missing `tgrep` and RTK are reported and require explicit confirmation before
+ stable-release installation. The router never installs a branch, prerelease,
+ draft, or untagged commit.
++
++AIUP core is preinstalled in catalog intent only: its six entries remain dormant
++and release-gated until `AI-Unified-Process/marketplace` publishes a stable
++GitHub Release. Bootstrap does not download AIUP source or install Context7
++MCP.
+diff --git a/docs/USAGE.md b/docs/USAGE.md
+index 0987a21..b896d15 100644
+--- a/docs/USAGE.md
++++ b/docs/USAGE.md
+@@ -14,10 +14,16 @@ skill-router clean --session <session-id>
+ ```
+ 
+ Repository searches use `tgrep`. RTK may reduce noisy Git/test/build/log
+ output, but it excludes `tgrep` from rewriting. Exact raw-output requests
+ disable RTK. Project `AGENTS.md` and explicit user choices win.
+ 
+ `doctor` reports missing `tgrep`/RTK. Tool installation is release-managed and
+ confirmation-gated; it selects the newest stable GitHub Release asset for the
+ host platform and architecture, verifies it, then preserves the previous
+ binary as `.previous` during replacement.
++
++AIUP core is cataloged as a preinstalled baseline, but remains dormant and
++release-gated. Requirements and brownfield reverse-engineering may route
++automatically; entity modeling, use-case, and test-case skills require explicit
++selection. No AIUP source or Context7 MCP is installed until a stable release
++exists.
+diff --git a/src/domain/catalog.ts b/src/domain/catalog.ts
+index 1ecaefb..5723768 100644
+--- a/src/domain/catalog.ts
++++ b/src/domain/catalog.ts
+@@ -1,19 +1,20 @@
+ export type ActivationMode = 'automatic' | 'explicit';
+ 
+ export interface SkillEntry {
+   id: string;
+   category: string;
+   source: string;
+   skillPath: string;
+   useWhen: readonly string[];
+   activation: ActivationMode;
++  preinstalled: boolean;
+   conflictsWith: readonly string[];
+   requires: readonly string[];
+   releasePolicy: 'latest-stable-tag';
+ }
+ 
+ export class CatalogValidationError extends Error {
+   constructor(field: string, message: string) {
+     super(`Invalid catalog field ${field}: ${message}`);
+     this.name = 'CatalogValidationError';
+   }
+@@ -158,43 +159,50 @@ function validateEntry(value: unknown, index: number): SkillEntry {
+   const skillPath = requiredString(value, 'skillPath', index);
+   validateGitHubSource(source, index);
+   validateSkillPath(skillPath, index);
+   const useWhen = requiredStringArray(value, 'useWhen', index);
+   const conflictsWith = requiredStringArray(value, 'conflictsWith', index);
+   const requires = requiredStringArray(value, 'requires', index);
+   const activation = value.activation;
+   if (activation !== 'automatic' && activation !== 'explicit') {
+     throw new CatalogValidationError(`skills[${index}].activation`, 'expected automatic or explicit');
+   }
++  const preinstalled = value.preinstalled;
++  if (typeof preinstalled !== 'boolean') {
++    throw new CatalogValidationError(`skills[${index}].preinstalled`, 'expected a boolean');
++  }
+   const releasePolicy = value.releasePolicy;
+   if (releasePolicy !== 'latest-stable-tag') {
+     throw new CatalogValidationError(
+       `skills[${index}].releasePolicy`,
+       'expected latest-stable-tag',
+     );
+   }
+ 
+   return {
+     id,
+     category,
+     source,
+     skillPath,
+     useWhen: Object.freeze([...useWhen]),
+     activation,
++    preinstalled,
+     conflictsWith: Object.freeze([...conflictsWith]),
+     requires: Object.freeze([...requires]),
+     releasePolicy,
+   };
+ }
+ 
+ function validateGitHubSource(source: string, index: number): void {
+-  if (!/^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$/.test(source)) {
++  const isSafeSource = source === 'AI-Unified-Process/marketplace' ||
++    /^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$/.test(source);
++  if (!isSafeSource) {
+     throw new CatalogValidationError(`skills[${index}].source`, 'expected an allowlisted GitHub owner/repository');
+   }
+ }
+ 
+ function validateSkillPath(skillPath: string, index: number): void {
+   if (
+     skillPath !== '.' &&
+     (
+       skillPath.startsWith('/') ||
+       skillPath.includes('\\') ||
+diff --git a/tasks/todo.md b/tasks/todo.md
+index 730b826..12f0e05 100644
+--- a/tasks/todo.md
++++ b/tasks/todo.md
+@@ -6,35 +6,38 @@
+ - [x] Write and review implementation plan
+ - [x] Implement catalog and router behavior, including tgrep/RTK tooling policy
+ - [x] Add tests for release-only resolution and cache stampede protection
+ - [x] Add tests for session activation and cleanup
+ - [x] Add verified artifact caching with atomic publication
+ - [x] Add CLI routing commands and native filesystem/archive adapters
+ - [x] Add global router skill and bootstrap command
+ - [x] Add RTK/tgrep release-managed global tooling with rollback safeguards
+ - [x] Run verification: tests, typecheck/lint, and deterministic cache scenarios
+ - [x] Document install/update commands and operational limits
+-- [ ] Add AIUP core requirements baseline as preinstalled, router-controlled defaults
++- [x] Add AIUP core requirements baseline as preinstalled, router-controlled defaults
+ 
+ ## Working Notes
+ 
+ - Workspace was not a Git repo; initialized on `feat-global-skill-router`.
+ - Existing user files in the workspace are unrelated and must remain unstaged.
+ - Active global behavior currently comes from `~/.codex/AGENTS.md` and Superpowers.
+ - Optional skills must remain outside the active `~/.agents/skills/` discovery path.
+ - Release policy is latest stable GitHub Release tag only; no branch fallback.
+ - Shared verified cache persists; per-session activation state is disposable.
+ - Per-source locks, TTL jitter, stale-cache serving, and atomic publication prevent cache stampedes.
+ - RTK is separate global tooling: release-tag only, checksum/version verified, atomic replacement, rollback-capable, never session-cached.
+ - `tgrep` remains the repository-search command; RTK must exclude it from command rewriting.
+ - RTK is an optional CLI-output adjunct for noisy shell tasks, disabled for exact raw-output requests.
+ - AIUP core baseline: six stack-agnostic requirements/model/use-case/test skills; auto only for requirements and brownfield analysis.
++- AIUP baseline is catalog intent only: all six entries are preinstalled-but-dormant; source remains release-gated and Context7 MCP is not installed.
+ - Task 1 bootstrap is implemented and review-approved; Task 2 catalog/router behavior is complete and review-approved.
+ - Task 3 stable-release resolver is implemented and review-approved; Task 4 is implemented and verified.
+ - Final verification: 111 tests pass; Bun typecheck/build and diff check pass; local HEAD matches `origin/feat-global-skill-router`.
+ 
+ ## Results
+ 
+ The router now bootstraps a global launcher, detects required `tgrep`, manages
+ stable tgrep/RTK release assets with confirmation and rollback, supports
+ metadata-only update checks and real skill activation, and keeps optional
+-skills/session state separate from global runtime tooling.
++skills/session state separate from global runtime tooling. AIUP core is now
++registered as a release-gated, router-controlled baseline without downloading
++its source.
+diff --git a/tests/integration/cli.test.ts b/tests/integration/cli.test.ts
+index 36230c3..35f7943 100644
+--- a/tests/integration/cli.test.ts
++++ b/tests/integration/cli.test.ts
+@@ -4,20 +4,21 @@ import type { SkillEntry } from '../../src/domain/catalog.js';
+ import { ToolingRegistry } from '../../src/services/tooling-registry.js';
+ 
+ const catalog: SkillEntry[] = [
+   {
+     id: 'rtk-cli-filter',
+     category: 'tooling',
+     source: 'rtk-ai/rtk',
+     skillPath: '.',
+     useWhen: ['run tests'],
+     activation: 'automatic',
++    preinstalled: false,
+     conflictsWith: [],
+     requires: ['rtk'],
+     releasePolicy: 'latest-stable-tag',
+   },
+ ];
+ 
+ describe('skill-router CLI', () => {
+   it('lists catalog metadata without loading skill bodies', async () => {
+     const result = await runCli(['list'], { catalog });
+ 
+diff --git a/tests/integration/end-to-end.test.ts b/tests/integration/end-to-end.test.ts
+index e50a850..5097685 100644
+--- a/tests/integration/end-to-end.test.ts
++++ b/tests/integration/end-to-end.test.ts
+@@ -65,20 +65,21 @@ describe('global router lifecycle', () => {
+     const home = await mkdtemp(join(tmpdir(), 'skill-router-hardening-'));
+     const catalogPath = join(home, 'catalog.yaml');
+     await writeFile(catalogPath, `
+ skills:
+   - id: demo
+     category: primary
+     source: owner/repo
+     skill_path: skills/demo
+     use_when: [demo]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: []
+     requires: []
+     release_policy: latest-stable-tag
+ `, 'utf8');
+ 
+     const install = await runCliFromDisk(['install', 'demo', '--confirm', '--session', 'session-a'], catalogPath, {
+       cacheRoot: '/cache',
+       fileSystem,
+       clock,
+       github: new DiskGitHub(),
+@@ -126,20 +127,21 @@ skills:
+     const home = await mkdtemp(join(tmpdir(), 'skill-router-check-updates-'));
+     const catalogPath = join(home, 'catalog.yaml');
+     await writeFile(catalogPath, `
+ skills:
+   - id: demo
+     category: primary
+     source: owner/repo
+     skill_path: skills/demo
+     use_when: [demo]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: []
+     requires: []
+     release_policy: latest-stable-tag
+ `, 'utf8');
+     const github = new DiskGitHub();
+ 
+     const result = await runCliFromDisk(['check-updates', '--session', 'session-check'], catalogPath, {
+       cacheRoot: '/cache',
+       fileSystem,
+       clock,
+@@ -161,20 +163,21 @@ skills:
+     const home = await mkdtemp(join(tmpdir(), 'skill-router-preview-'));
+     const catalogPath = join(home, 'catalog.yaml');
+     await writeFile(catalogPath, `
+ skills:
+   - id: taste
+     category: ui-research
+     source: senlindesign/taste-skill
+     skill_path: .
+     use_when: [design reference]
+     activation: explicit
++    preinstalled: false
+     conflicts_with: []
+     requires: [playwright]
+     release_policy: latest-stable-tag
+ `, 'utf8');
+     const github = new DiskGitHub();
+ 
+     const result = await runCliFromDisk(['install', 'taste', '--session', 'preview-session'], catalogPath, {
+       cacheRoot: '/cache', fileSystem, clock, github,
+     });
+ 
+diff --git a/tests/unit/catalog.test.ts b/tests/unit/catalog.test.ts
+index 71d2dc7..ba780a3 100644
+--- a/tests/unit/catalog.test.ts
++++ b/tests/unit/catalog.test.ts
+@@ -1,16 +1,100 @@
+ import { readFile } from 'node:fs/promises';
+ import { resolve } from 'node:path';
+ import { describe, expect, it } from 'vitest';
+ import { CatalogValidationError, parseCatalog } from '../../src/domain/catalog.js';
+ 
+ describe('catalog parser', () => {
++  const aiupCatalogYaml = `
++skills:
++  - id: aiup-requirements
++    category: requirements
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/requirements
++    use_when: [requirements]
++    activation: automatic
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-reverse-engineer
++    category: requirements
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/reverse-engineer
++    use_when: [reverse engineer]
++    activation: automatic
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-entity-model
++    category: requirements-modeling
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/entity-model
++    use_when: [entity model]
++    activation: explicit
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-use-case-diagram
++    category: requirements-modeling
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/use-case-diagram
++    use_when: [use case diagram]
++    activation: explicit
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-use-case-spec
++    category: requirements
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/use-case-spec
++    use_when: [use case specification]
++    activation: explicit
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++  - id: aiup-test-case
++    category: requirements-testing
++    source: AI-Unified-Process/marketplace
++    skill_path: aiup-core/skills/test-case
++    use_when: [test case]
++    activation: explicit
++    preinstalled: true
++    conflicts_with: []
++    requires: []
++    release_policy: latest-stable-tag
++`;
++
++  it('parses preinstalled AIUP entries with their exact source and skill paths', () => {
++    const skills = parseCatalog(aiupCatalogYaml);
++    expect(skills.filter((skill) => skill.id.startsWith('aiup-'))).toHaveLength(6);
++    expect(skills.every((skill) => skill.preinstalled)).toBe(true);
++    expect(skills.every((skill) => skill.source === 'AI-Unified-Process/marketplace')).toBe(true);
++    expect(skills.map((skill) => skill.skillPath)).toEqual([
++      'aiup-core/skills/requirements',
++      'aiup-core/skills/reverse-engineer',
++      'aiup-core/skills/entity-model',
++      'aiup-core/skills/use-case-diagram',
++      'aiup-core/skills/use-case-spec',
++      'aiup-core/skills/test-case',
++    ]);
++  });
++
++  it('rejects a catalog entry without the preinstalled boolean', () => {
++    expect(() => parseCatalog(aiupCatalogYaml.replace('    preinstalled: true\n', '')))
++      .toThrow(/preinstalled/);
++  });
++
+   it('parses the approved catalog entries from YAML', async () => {
+     const source = await readFile(resolve(process.cwd(), 'catalog/catalog.yaml'), 'utf8');
+ 
+     const skills = parseCatalog(source);
+     const appleDesign = skills.find((skill) => skill.id === 'apple-design');
+ 
+     expect(appleDesign).toMatchObject({
+       source: 'emilkowalski/skills',
+       skillPath: 'skills/apple-design',
+       activation: 'explicit',
+@@ -36,20 +120,21 @@ describe('catalog parser', () => {
+ 
+   it('rejects a malformed entry and names the invalid field', () => {
+     expect(() =>
+       parseCatalog(`
+ skills:
+   - id: incomplete
+     source: owner/repo
+     skill_path: skills/incomplete
+     use_when: [incomplete]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: []
+     requires: []
+     release_policy: latest-stable-tag
+ `),
+     ).toThrowError(CatalogValidationError);
+ 
+     expect(() =>
+       parseCatalog(`
+ skills:
+   - id: incomplete
+@@ -67,45 +152,48 @@ skills:
+   it('rejects duplicate skill IDs', () => {
+     expect(() =>
+       parseCatalog(`
+ skills:
+   - id: duplicate
+     category: primary
+     source: owner/repo
+     skill_path: skills/duplicate
+     use_when: [first]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: []
+     requires: []
+     release_policy: latest-stable-tag
+   - id: duplicate
+     category: primary
+     source: owner/repo
+     skill_path: skills/duplicate-again
+     use_when: [second]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: []
+     requires: []
+     release_policy: latest-stable-tag
+ `),
+     ).toThrow(/duplicate.*id/i);
+   });
+ 
+   it('normalizes snake_case fields in JSON catalogs', () => {
+     const [entry] = parseCatalog(JSON.stringify({
+       skills: [{
+         id: 'json-skill',
+         category: 'primary',
+         source: 'owner/repo',
+         skill_path: 'skills/json-skill',
+         use_when: ['json catalog'],
+         activation: 'automatic',
++        preinstalled: false,
+         conflicts_with: [],
+         requires: [],
+         release_policy: 'latest-stable-tag',
+       }],
+     }));
+ 
+     expect(entry).toMatchObject({
+       skillPath: 'skills/json-skill',
+       useWhen: ['json catalog'],
+       conflictsWith: [],
+@@ -118,31 +206,33 @@ skills:
+     ['owner/../repo', 'source'],
+   ])('rejects an unsafe GitHub source %s', (source, field) => {
+     expect(() => parseCatalog(`
+ skills:
+   - id: unsafe-source
+     category: primary
+     source: ${source}
+     skill_path: skills/demo
+     use_when: [demo]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: []
+     requires: []
+     release_policy: latest-stable-tag
+ `)).toThrow(new RegExp(field));
+   });
+ 
+   it.each(['../outside', '/absolute/path', 'skills/../outside', 'skills\\outside'])('rejects unsafe skill paths: %s', (skillPath) => {
+     expect(() => parseCatalog(`
+ skills:
+   - id: unsafe-path
+     category: primary
+     source: owner/repo
+     skill_path: ${skillPath}
+     use_when: [demo]
+     activation: automatic
++    preinstalled: false
+     conflicts_with: []
+     requires: []
+     release_policy: latest-stable-tag
+ `)).toThrow(/skillPath/);
+   });
+ });
+diff --git a/tests/unit/skill-router.test.ts b/tests/unit/skill-router.test.ts
+index 313589a..caeb0d3 100644
+--- a/tests/unit/skill-router.test.ts
++++ b/tests/unit/skill-router.test.ts
+@@ -2,20 +2,21 @@ import { describe, expect, it } from 'vitest';
+ import type { SkillEntry } from '../../src/domain/catalog.js';
+ import { route } from '../../src/services/skill-router.js';
+ 
+ const skill = (overrides: Partial<SkillEntry>): SkillEntry => ({
+   id: 'skill',
+   category: 'primary',
+   source: 'owner/repo',
+   skillPath: 'skills/skill',
+   useWhen: [],
+   activation: 'automatic',
++  preinstalled: false,
+   conflictsWith: [],
+   requires: [],
+   releasePolicy: 'latest-stable-tag',
+   ...overrides,
+ });
+ 
+ describe('skill router', () => {
+   it('uses tgrep as the repository search command without enabling RTK', () => {
+     const result = route({ task: 'Find where the router is defined' }, []);
+ 
+@@ -74,20 +75,43 @@ describe('skill router', () => {
+ 
+   it('selects emil-design-eng when the task mentions animation', () => {
+     const result = route(
+       { task: 'Improve the animation of this component' },
+       [skill({ id: 'emil-design-eng', useWhen: ['animation'] })],
+     );
+ 
+     expect(result.primary?.id).toBe('emil-design-eng');
+   });
+ 
++  it('routes requirements and brownfield tasks to AIUP automatic skills', () => {
++    const skills = [
++      skill({ id: 'aiup-requirements', category: 'requirements', useWhen: ['requirements', 'vision'] }),
++      skill({ id: 'aiup-reverse-engineer', category: 'requirements', useWhen: ['reverse engineer', 'brownfield'] }),
++    ];
++
++    expect(route({ task: 'turn this vision into measurable requirements' }, skills).primary?.id)
++      .toBe('aiup-requirements');
++    expect(route({ task: 'reverse engineer this existing application' }, skills).primary?.id)
++      .toBe('aiup-reverse-engineer');
++  });
++
++  it('does not auto-route downstream AIUP skills', () => {
++    const skills = [
++      skill({ id: 'aiup-entity-model', category: 'requirements-modeling', activation: 'explicit', useWhen: ['entity model'] }),
++      skill({ id: 'aiup-use-case-diagram', category: 'requirements-modeling', activation: 'explicit', useWhen: ['use case diagram'] }),
++    ];
++
++    const result = route({ task: 'model entities and draw use cases' }, skills);
++    expect(result.primary?.id).not.toBe('aiup-entity-model');
++    expect(result.primary?.id).not.toBe('aiup-use-case-diagram');
++  });
++
+   it('does not match a short category inside a larger word', () => {
+     const result = route(
+       { task: 'Build an API' },
+       [skill({ id: 'ui-guidance', category: 'ui' })],
+     );
+ 
+     expect(result.primary).toBeNull();
+   });
+ 
+   it('does not select taste without a website-analysis trigger', () => {
