@@ -45,6 +45,24 @@ Caveman, Superpowers, tgrep, RTK, PDF, and JSON behavior was not changed.
 - No Context7 MCP installed
 - Existing PDF/JSON files remain untouched and unstaged
 
+## Allowlist Review Fix
+
+Replaced syntactic-only GitHub source validation with an explicit reviewed
+source allowlist containing every source currently used by the approved
+catalog, including `AI-Unified-Process/marketplace`. Added regression coverage
+that rejects a syntactically valid but unreviewed `owner/repository` source.
+Updated generic integration fixtures to use an approved source without changing
+production behavior or catalog entries.
+
+## Allowlist Fix Verification
+
+- Focused catalog/integration tests: `22 passed`
+- Full suite: `116 passed`, `15 test files passed`
+- Typecheck: `bun run typecheck` passed
+- Build: `bun run build` passed
+- Diff validation: `git diff --check` passed
+- PDF/JSON files remain untouched
+
 ## Files Changed
 
 - `src/domain/catalog.ts`

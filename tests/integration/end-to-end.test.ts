@@ -49,7 +49,7 @@ describe('global router lifecycle', () => {
   it('shares an artifact across sessions and cleans only one session', async () => {
     const fileSystem = new FakeFileSystem();
     const clock = new FakeClock();
-    const release: ResolvedRelease = { repo: 'owner/repo', tag: 'v1.0.0', commitSha: '0'.repeat(40), resolvedAt: clock.now().toISOString() };
+    const release: ResolvedRelease = { repo: 'emilkowalski/skills', tag: 'v1.0.0', commitSha: '0'.repeat(40), resolvedAt: clock.now().toISOString() };
     const artifact = await new ArtifactCacheService({ cacheRoot: '/cache', fileSystem, archiveExtractor: new Extractor(), sourceLock: new FileSystemSourceLock({ fileSystem, clock, lockRoot: '/cache/locks', pollIntervalMs: 1 }), download: async () => new Uint8Array([1]), skillExists: () => true }).ensure(release, 'skills/demo');
     const sessions = new SessionManagerService({ root: '/cache', fileSystem, clock, abandonedTtlMs: 60_000 });
     await sessions.activate('session-a', artifact);
@@ -68,7 +68,7 @@ describe('global router lifecycle', () => {
 skills:
   - id: demo
     category: primary
-    source: owner/repo
+    source: emilkowalski/skills
     skill_path: skills/demo
     use_when: [demo]
     activation: automatic
@@ -87,7 +87,7 @@ skills:
     });
 
     expect(install.code).toBe(0);
-    const activeRoot = '/cache/sessions/session-a/active/owner%2Frepo-skills%2Fdemo';
+    const activeRoot = '/cache/sessions/session-a/active/emilkowalski%2Fskills-skills%2Fdemo';
     await expect(fileSystem.exists(`${activeRoot}/SKILL.md`)).resolves.toBe(true);
     await expect(fileSystem.exists(`${activeRoot}/sibling/SKILL.md`)).resolves.toBe(false);
 
@@ -95,7 +95,7 @@ skills:
       cacheRoot: '/cache', fileSystem, clock, github: new DiskGitHub(), archiveExtractor: new DiskExtractor(fileSystem),
     });
     expect(use.code).toBe(0);
-    await expect(fileSystem.exists('/cache/sessions/session-b/active/owner%2Frepo-skills%2Fdemo/SKILL.md')).resolves.toBe(true);
+    await expect(fileSystem.exists('/cache/sessions/session-b/active/emilkowalski%2Fskills-skills%2Fdemo/SKILL.md')).resolves.toBe(true);
 
     const previewClean = await runCliFromDisk(['clean', '--session', 'session-a'], catalogPath, {
       cacheRoot: '/cache',
@@ -118,7 +118,7 @@ skills:
 
     expect(clean.code).toBe(0);
     await expect(fileSystem.exists('/cache/sessions/session-a')).resolves.toBe(false);
-    await expect(fileSystem.exists('/cache/objects/owner%2Frepo-skills%2Fdemo-0123456789abcdef0123456789abcdef01234567')).resolves.toBe(true);
+    await expect(fileSystem.exists('/cache/objects/emilkowalski%2Fskills-skills%2Fdemo-0123456789abcdef0123456789abcdef01234567')).resolves.toBe(true);
   });
 
   it('checks release metadata without downloading or activating an artifact', async () => {
@@ -130,7 +130,7 @@ skills:
 skills:
   - id: demo
     category: primary
-    source: owner/repo
+    source: emilkowalski/skills
     skill_path: skills/demo
     use_when: [demo]
     activation: automatic
@@ -150,11 +150,11 @@ skills:
 
     expect(result.code).toBe(0);
     expect(result.output).toBe(
-      'demo: latest v1.0.0 from owner/repo (0123456789abcdef0123456789abcdef01234567)',
+      'demo: latest v1.0.0 from emilkowalski/skills (0123456789abcdef0123456789abcdef01234567)',
     );
-    expect(github.calls).toEqual(['listReleases:owner/repo', 'resolveTag:owner/repo:v1.0.0']);
+    expect(github.calls).toEqual(['listReleases:emilkowalski/skills', 'resolveTag:emilkowalski/skills:v1.0.0']);
     await expect(fileSystem.exists('/cache/sessions/session-check/active')).resolves.toBe(false);
-    await expect(fileSystem.exists('/cache/objects/owner%2Frepo-skills%2Fdemo-0123456789abcdef0123456789abcdef01234567')).resolves.toBe(false);
+    await expect(fileSystem.exists('/cache/objects/emilkowalski%2Fskills-skills%2Fdemo-0123456789abcdef0123456789abcdef01234567')).resolves.toBe(false);
   });
 
   it('previews a skill with complete release/actions and performs no writes or downloads', async () => {

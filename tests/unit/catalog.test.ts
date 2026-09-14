@@ -123,7 +123,7 @@ skills:
       parseCatalog(`
 skills:
   - id: incomplete
-    source: owner/repo
+    source: emilkowalski/skills
     skill_path: skills/incomplete
     use_when: [incomplete]
     activation: automatic
@@ -138,7 +138,7 @@ skills:
       parseCatalog(`
 skills:
   - id: incomplete
-    source: owner/repo
+    source: emilkowalski/skills
     skill_path: skills/incomplete
     use_when: [incomplete]
     activation: automatic
@@ -155,7 +155,7 @@ skills:
 skills:
   - id: duplicate
     category: primary
-    source: owner/repo
+    source: emilkowalski/skills
     skill_path: skills/duplicate
     use_when: [first]
     activation: automatic
@@ -165,7 +165,7 @@ skills:
     release_policy: latest-stable-tag
   - id: duplicate
     category: primary
-    source: owner/repo
+    source: emilkowalski/skills
     skill_path: skills/duplicate-again
     use_when: [second]
     activation: automatic
@@ -182,7 +182,7 @@ skills:
       skills: [{
         id: 'json-skill',
         category: 'primary',
-        source: 'owner/repo',
+        source: 'emilkowalski/skills',
         skill_path: 'skills/json-skill',
         use_when: ['json catalog'],
         activation: 'automatic',
@@ -220,12 +220,28 @@ skills:
 `)).toThrow(new RegExp(field));
   });
 
+  it('rejects a syntactically valid but unreviewed GitHub source', () => {
+    expect(() => parseCatalog(`
+skills:
+  - id: unreviewed-source
+    category: primary
+    source: unreviewed-owner/unreviewed-repository
+    skill_path: skills/demo
+    use_when: [demo]
+    activation: automatic
+    preinstalled: false
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+`)).toThrow(/allowlisted GitHub owner\/repository/);
+  });
+
   it.each(['../outside', '/absolute/path', 'skills/../outside', 'skills\\outside'])('rejects unsafe skill paths: %s', (skillPath) => {
     expect(() => parseCatalog(`
 skills:
   - id: unsafe-path
     category: primary
-    source: owner/repo
+    source: emilkowalski/skills
     skill_path: ${skillPath}
     use_when: [demo]
     activation: automatic

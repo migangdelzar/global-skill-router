@@ -24,6 +24,16 @@ type CatalogRecord = Record<string, unknown>;
 
 const requiredStrings = ['id', 'category', 'source', 'skillPath'] as const;
 const requiredArrays = ['useWhen', 'conflictsWith', 'requires'] as const;
+const reviewedGitHubSources = new Set([
+  'AI-Unified-Process/marketplace',
+  'EgonexAI/Understand-Anything',
+  'emilkowalski/skills',
+  'nextlevelbuilder/ui-ux-pro-max-skill',
+  'pbakaus/impeccable',
+  'rtk-ai/rtk',
+  'safishamsi/graphify',
+  'senlindesign/taste-skill',
+]);
 
 export function parseCatalog(source: string): readonly SkillEntry[] {
   const document = parseDocument(source);
@@ -193,9 +203,7 @@ function validateEntry(value: unknown, index: number): SkillEntry {
 }
 
 function validateGitHubSource(source: string, index: number): void {
-  const isSafeSource = source === 'AI-Unified-Process/marketplace' ||
-    /^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$/.test(source);
-  if (!isSafeSource) {
+  if (!reviewedGitHubSources.has(source)) {
     throw new CatalogValidationError(`skills[${index}].source`, 'expected an allowlisted GitHub owner/repository');
   }
 }
