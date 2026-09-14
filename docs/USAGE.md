@@ -21,3 +21,9 @@ disable RTK. Project `AGENTS.md` and explicit user choices win.
 confirmation-gated; it selects the newest stable GitHub Release asset for the
 host platform and architecture, verifies it, then preserves the previous
 binary as `.previous` during replacement.
+
+AIUP core is cataloged as a preinstalled baseline, but remains dormant and
+release-gated. Requirements and brownfield reverse-engineering may route
+automatically; entity modeling, use-case, and test-case skills require explicit
+selection. No AIUP source or Context7 MCP is installed until a stable release
+exists.

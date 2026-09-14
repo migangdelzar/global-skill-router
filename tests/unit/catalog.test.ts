@@ -4,6 +4,90 @@ import { describe, expect, it } from 'vitest';
 import { CatalogValidationError, parseCatalog } from '../../src/domain/catalog.js';
 
 describe('catalog parser', () => {
+  const aiupCatalogYaml = `
+skills:
+  - id: aiup-requirements
+    category: requirements
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/requirements
+    use_when: [requirements]
+    activation: automatic
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-reverse-engineer
+    category: requirements
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/reverse-engineer
+    use_when: [reverse engineer]
+    activation: automatic
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-entity-model
+    category: requirements-modeling
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/entity-model
+    use_when: [entity model]
+    activation: explicit
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-use-case-diagram
+    category: requirements-modeling
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/use-case-diagram
+    use_when: [use case diagram]
+    activation: explicit
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-use-case-spec
+    category: requirements
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/use-case-spec
+    use_when: [use case specification]
+    activation: explicit
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-test-case
+    category: requirements-testing
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/test-case
+    use_when: [test case]
+    activation: explicit
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+`;
+
+  it('parses preinstalled AIUP entries with their exact source and skill paths', () => {
+    const skills = parseCatalog(aiupCatalogYaml);
+    expect(skills.filter((skill) => skill.id.startsWith('aiup-'))).toHaveLength(6);
+    expect(skills.every((skill) => skill.preinstalled)).toBe(true);
+    expect(skills.every((skill) => skill.source === 'AI-Unified-Process/marketplace')).toBe(true);
+    expect(skills.map((skill) => skill.skillPath)).toEqual([
+      'aiup-core/skills/requirements',
+      'aiup-core/skills/reverse-engineer',
+      'aiup-core/skills/entity-model',
+      'aiup-core/skills/use-case-diagram',
+      'aiup-core/skills/use-case-spec',
+      'aiup-core/skills/test-case',
+    ]);
+  });
+
+  it('rejects a catalog entry without the preinstalled boolean', () => {
+    expect(() => parseCatalog(aiupCatalogYaml.replace('    preinstalled: true\n', '')))
+      .toThrow(/preinstalled/);
+  });
+
   it('parses the approved catalog entries from YAML', async () => {
     const source = await readFile(resolve(process.cwd(), 'catalog/catalog.yaml'), 'utf8');
 
@@ -43,6 +127,7 @@ skills:
     skill_path: skills/incomplete
     use_when: [incomplete]
     activation: automatic
+    preinstalled: false
     conflicts_with: []
     requires: []
     release_policy: latest-stable-tag
@@ -74,6 +159,7 @@ skills:
     skill_path: skills/duplicate
     use_when: [first]
     activation: automatic
+    preinstalled: false
     conflicts_with: []
     requires: []
     release_policy: latest-stable-tag
@@ -83,6 +169,7 @@ skills:
     skill_path: skills/duplicate-again
     use_when: [second]
     activation: automatic
+    preinstalled: false
     conflicts_with: []
     requires: []
     release_policy: latest-stable-tag
@@ -99,6 +186,7 @@ skills:
         skill_path: 'skills/json-skill',
         use_when: ['json catalog'],
         activation: 'automatic',
+        preinstalled: false,
         conflicts_with: [],
         requires: [],
         release_policy: 'latest-stable-tag',
@@ -125,6 +213,7 @@ skills:
     skill_path: skills/demo
     use_when: [demo]
     activation: automatic
+    preinstalled: false
     conflicts_with: []
     requires: []
     release_policy: latest-stable-tag
@@ -140,6 +229,7 @@ skills:
     skill_path: ${skillPath}
     use_when: [demo]
     activation: automatic
+    preinstalled: false
     conflicts_with: []
     requires: []
     release_policy: latest-stable-tag

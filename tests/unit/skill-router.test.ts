@@ -9,6 +9,7 @@ const skill = (overrides: Partial<SkillEntry>): SkillEntry => ({
   skillPath: 'skills/skill',
   useWhen: [],
   activation: 'automatic',
+  preinstalled: false,
   conflictsWith: [],
   requires: [],
   releasePolicy: 'latest-stable-tag',
@@ -79,6 +80,29 @@ describe('skill router', () => {
     );
 
     expect(result.primary?.id).toBe('emil-design-eng');
+  });
+
+  it('routes requirements and brownfield tasks to AIUP automatic skills', () => {
+    const skills = [
+      skill({ id: 'aiup-requirements', category: 'requirements', useWhen: ['requirements', 'vision'] }),
+      skill({ id: 'aiup-reverse-engineer', category: 'requirements', useWhen: ['reverse engineer', 'brownfield'] }),
+    ];
+
+    expect(route({ task: 'turn this vision into measurable requirements' }, skills).primary?.id)
+      .toBe('aiup-requirements');
+    expect(route({ task: 'reverse engineer this existing application' }, skills).primary?.id)
+      .toBe('aiup-reverse-engineer');
+  });
+
+  it('does not auto-route downstream AIUP skills', () => {
+    const skills = [
+      skill({ id: 'aiup-entity-model', category: 'requirements-modeling', activation: 'explicit', useWhen: ['entity model'] }),
+      skill({ id: 'aiup-use-case-diagram', category: 'requirements-modeling', activation: 'explicit', useWhen: ['use case diagram'] }),
+    ];
+
+    const result = route({ task: 'model entities and draw use cases' }, skills);
+    expect(result.primary?.id).not.toBe('aiup-entity-model');
+    expect(result.primary?.id).not.toBe('aiup-use-case-diagram');
   });
 
   it('does not match a short category inside a larger word', () => {

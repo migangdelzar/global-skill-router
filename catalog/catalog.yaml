@@ -5,6 +5,7 @@ skills:
     skill_path: skills/emil-design-eng
     use_when: [ui polish, animation, interaction, component craft]
     activation: automatic
+    preinstalled: false
     conflicts_with: [ui-ux-pro-max, impeccable]
     requires: []
     release_policy: latest-stable-tag
@@ -14,6 +15,7 @@ skills:
     skill_path: skills/apple-design
     use_when: [Apple platform, iOS, macOS, Human Interface Guidelines]
     activation: explicit
+    preinstalled: false
     conflicts_with: []
     requires: []
     release_policy: latest-stable-tag
@@ -23,6 +25,7 @@ skills:
     skill_path: .
     use_when: [analyze website design, extract design DNA, study visual reference]
     activation: explicit
+    preinstalled: false
     conflicts_with: []
     requires: [playwright]
     release_policy: latest-stable-tag
@@ -32,6 +35,7 @@ skills:
     skill_path: .
     use_when: [UI audit, accessibility audit, visual polish]
     activation: explicit
+    preinstalled: false
     conflicts_with: [ui-ux-pro-max, emil-design-eng]
     requires: []
     release_policy: latest-stable-tag
@@ -41,6 +45,7 @@ skills:
     skill_path: .
     use_when: [design system, style exploration, UI architecture]
     activation: explicit
+    preinstalled: false
     conflicts_with: [emil-design-eng, impeccable]
     requires: []
     release_policy: latest-stable-tag
@@ -50,6 +55,7 @@ skills:
     skill_path: .
     use_when: [codebase graph, dependency graph, repository map]
     activation: explicit
+    preinstalled: false
     conflicts_with: [understand-anything]
     requires: []
     release_policy: latest-stable-tag
@@ -59,6 +65,7 @@ skills:
     skill_path: .
     use_when: [understand codebase, visualize repository, explore codebase]
     activation: explicit
+    preinstalled: false
     conflicts_with: [graphify]
     requires: []
     release_policy: latest-stable-tag
@@ -68,6 +75,67 @@ skills:
     skill_path: .
     use_when: [run tests, inspect git, build logs, shell-heavy coding task]
     activation: automatic
+    preinstalled: false
     conflicts_with: []
     requires: [rtk]
+    release_policy: latest-stable-tag
+  - id: aiup-requirements
+    category: requirements
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/requirements
+    use_when: [requirements, vision, acceptance criteria, ambiguity]
+    activation: automatic
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-reverse-engineer
+    category: requirements
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/reverse-engineer
+    use_when: [reverse engineer, brownfield, existing application]
+    activation: automatic
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-entity-model
+    category: requirements-modeling
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/entity-model
+    use_when: [entity model, domain model, data model]
+    activation: explicit
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-use-case-diagram
+    category: requirements-modeling
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/use-case-diagram
+    use_when: [use case diagram, system use cases, actors]
+    activation: explicit
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-use-case-spec
+    category: requirements
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/use-case-spec
+    use_when: [use case specification, main success scenario, alternative flow]
+    activation: explicit
+    preinstalled: true
+    conflicts_with: []
+    requires: []
+    release_policy: latest-stable-tag
+  - id: aiup-test-case
+    category: requirements-testing
+    source: AI-Unified-Process/marketplace
+    skill_path: aiup-core/skills/test-case
+    use_when: [test case, user journey, acceptance journey]
+    activation: explicit
+    preinstalled: true
+    conflicts_with: []
+    requires: []
     release_policy: latest-stable-tag

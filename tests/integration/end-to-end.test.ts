@@ -72,6 +72,7 @@ skills:
     skill_path: skills/demo
     use_when: [demo]
     activation: automatic
+    preinstalled: false
     conflicts_with: []
     requires: []
     release_policy: latest-stable-tag
@@ -133,6 +134,7 @@ skills:
     skill_path: skills/demo
     use_when: [demo]
     activation: automatic
+    preinstalled: false
     conflicts_with: []
     requires: []
     release_policy: latest-stable-tag
@@ -168,6 +170,7 @@ skills:
     skill_path: .
     use_when: [design reference]
     activation: explicit
+    preinstalled: false
     conflicts_with: []
     requires: [playwright]
     release_policy: latest-stable-tag

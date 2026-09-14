@@ -11,6 +11,7 @@ const catalog: SkillEntry[] = [
     skillPath: '.',
     useWhen: ['run tests'],
     activation: 'automatic',
+    preinstalled: false,
     conflictsWith: [],
     requires: ['rtk'],
     releasePolicy: 'latest-stable-tag',

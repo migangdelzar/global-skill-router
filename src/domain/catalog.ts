@@ -7,6 +7,7 @@ export interface SkillEntry {
   skillPath: string;
   useWhen: readonly string[];
   activation: ActivationMode;
+  preinstalled: boolean;
   conflictsWith: readonly string[];
   requires: readonly string[];
   releasePolicy: 'latest-stable-tag';
@@ -165,6 +166,10 @@ function validateEntry(value: unknown, index: number): SkillEntry {
   if (activation !== 'automatic' && activation !== 'explicit') {
     throw new CatalogValidationError(`skills[${index}].activation`, 'expected automatic or explicit');
   }
+  const preinstalled = value.preinstalled;
+  if (typeof preinstalled !== 'boolean') {
+    throw new CatalogValidationError(`skills[${index}].preinstalled`, 'expected a boolean');
+  }
   const releasePolicy = value.releasePolicy;
   if (releasePolicy !== 'latest-stable-tag') {
     throw new CatalogValidationError(
@@ -180,6 +185,7 @@ function validateEntry(value: unknown, index: number): SkillEntry {
     skillPath,
     useWhen: Object.freeze([...useWhen]),
     activation,
+    preinstalled,
     conflictsWith: Object.freeze([...conflictsWith]),
     requires: Object.freeze([...requires]),
     releasePolicy,
@@ -187,7 +193,9 @@ function validateEntry(value: unknown, index: number): SkillEntry {
 }
 
 function validateGitHubSource(source: string, index: number): void {
-  if (!/^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$/.test(source)) {
+  const isSafeSource = source === 'AI-Unified-Process/marketplace' ||
+    /^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$/.test(source);
+  if (!isSafeSource) {
     throw new CatalogValidationError(`skills[${index}].source`, 'expected an allowlisted GitHub owner/repository');
   }
 }
