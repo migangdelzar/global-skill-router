@@ -5,6 +5,7 @@
 
 - Task 1 bootstrap: commits `6215416`, `9ce2839`, `22d4a6b`; review approved.
 - RTK/tgrep runtime layer implemented, tested, and documented.
+- AIUP core baseline implemented and source-allowlist review approved (`054a7a4`, `27e9ae5`).
 
 ## Active
 
@@ -22,6 +23,7 @@
 - Stable GitHub Release tags only; resolve immutable SHAs.
 - RTK is global tooling, never session-cached; verify checksum/version and retain rollback.
 - Public origin configured at `git@github.com:migangdelzar/global-skill-router.git`.
+- AIUP upstream has no GitHub Release; entries remain dormant until a stable release exists.
 
 ## Complete
 
@@ -29,3 +31,4 @@
   bootstrap, Task 9 documentation/verification, and Task 10 runtime tooling.
 - Post-review fixes complete: commits `6d3491a`, `35fda79`, `05faeba`, `185d428`;
   full review-fix suite passed and remote ref verified.
+- Final AIUP verification: 116/116 tests pass; typecheck/build/diff check pass; review clean.
