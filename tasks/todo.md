@@ -13,6 +13,7 @@
 - [x] Add RTK/tgrep release-managed global tooling with rollback safeguards
 - [x] Run verification: tests, typecheck/lint, and deterministic cache scenarios
 - [x] Document install/update commands and operational limits
+- [ ] Add AIUP core requirements baseline as preinstalled, router-controlled defaults
 
 ## Working Notes
 
@@ -26,6 +27,7 @@
 - RTK is separate global tooling: release-tag only, checksum/version verified, atomic replacement, rollback-capable, never session-cached.
 - `tgrep` remains the repository-search command; RTK must exclude it from command rewriting.
 - RTK is an optional CLI-output adjunct for noisy shell tasks, disabled for exact raw-output requests.
+- AIUP core baseline: six stack-agnostic requirements/model/use-case/test skills; auto only for requirements and brownfield analysis.
 - Task 1 bootstrap is implemented and review-approved; Task 2 catalog/router behavior is complete and review-approved.
 - Task 3 stable-release resolver is implemented and review-approved; Task 4 is implemented and verified.
 - Final verification: 111 tests pass; Bun typecheck/build and diff check pass; local HEAD matches `origin/feat-global-skill-router`.

@@ -160,6 +160,27 @@ Each entry records:
 - `rtk-cli-filter`: automatic CLI-output optimization adjunct; compatible with
   Caveman and `tgrep`, with `tgrep` excluded from RTK rewriting.
 
+### AIUP Requirements Baseline
+
+Register Simon Martinelli's stack-agnostic `aiup-core` skills as the default
+requirements methodology set:
+
+- `aiup-requirements`: automatic for vision, requirements, ambiguity, and
+  acceptance-criteria work.
+- `aiup-reverse-engineer`: automatic for brownfield understanding and existing
+  system analysis.
+- `aiup-entity-model`, `aiup-use-case-diagram`, `aiup-use-case-spec`, and
+  `aiup-test-case`: preinstalled but explicit/downstream, so they do not all
+  trigger on every task.
+
+All six are marked `preinstalled: true` in the catalog but remain router-
+controlled and dormant until their workflow step is selected. Their source is
+`AI-Unified-Process/marketplace` under `aiup-core/skills/`. The marketplace has
+no GitHub Release at the time of this design, so the release-only installer must
+fail closed and report the missing stable release; it must not use `main` or a
+raw commit as a fallback. The optional Context7 MCP bundled by the plugin is
+not installed by this baseline because MCP setup is a separate explicit choice.
+
 ## Version Resolution
 
 The only acceptable install source is the newest stable GitHub Release tag.
